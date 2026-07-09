@@ -17,6 +17,16 @@ for (let i = 1; i < 50000; i++) {
   };
 }
 
+ export interface SelectionRange {
+    start: Cell;
+    end: Cell;
+    type: 'cell' | 'row' | 'column';
+}
+
+export type EditAction =
+    | { type: 'cell-edit'; row: number; col: number; oldValue: string; newValue: string }
+    | { type: 'col-resize'; col: number; oldWidth: number; newWidth: number }
+    | { type: 'row-resize'; row: number; oldHeight: number; newHeight: number };
 
 
 
