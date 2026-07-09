@@ -58,8 +58,8 @@ class ExcelVirtualScroller {
         this.widthArray = new Array(this.maxCols).fill(this.colWidth);
         this.heightArray = new Array(this.maxRows).fill(this.rowHeight);
 
-        this.prefWidthArray = new Array(this.maxCols);
-        this.prefHeightArray = new Array(this.maxRows);
+        this.prefWidthArray = new Array(this.maxCols+1);
+        this.prefHeightArray = new Array(this.maxRows+1);
 
         this.ctx = this.canvas.getContext('2d')!;
 
@@ -111,13 +111,13 @@ class ExcelVirtualScroller {
 
     private prefixGenerator(): void {
         this.prefWidthArray[0] = 0;
-        for (let i = 1; i < this.maxCols; i++) {
-            this.prefWidthArray[i] = this.prefWidthArray[i - 1]! + this.widthArray[i - 1]!;
+        for (let i = 0; i < this.maxCols; i++) {
+            this.prefWidthArray[i+1] = this.prefWidthArray[i]! + this.widthArray[i]!;
         }
 
         this.prefHeightArray[0] = 0;
-        for (let i = 1; i < this.maxRows; i++) {
-            this.prefHeightArray[i] = this.prefHeightArray[i - 1]! + this.heightArray[i - 1]!;
+        for (let i = 0; i < this.maxRows; i++) {
+            this.prefHeightArray[i+1] = this.prefHeightArray[i]! + this.heightArray[i]!;
         }
     }
 
@@ -170,23 +170,21 @@ class ExcelVirtualScroller {
             const rect = this.scrollContainer.getBoundingClientRect();
             const screenX = e.clientX - rect.left;
             const screenY = e.clientY - rect.top;
-
-            const gridX = screenX + this.scrollX - this.headerWidth;
-            const gridY = screenY + this.scrollY - this.headerHeight;
-
-            if (screenY <= this.headerHeight) {
-                const resizeCol = this.getResizeColumn(gridX);
+            // const gridX = screenX + this.scrollX - this.headerWidth;
+            // const gridY = screenY + this.scrollY - this.headerHeight;
+            if (screenY >=0 ) {//<= this.headerHeight
+                const resizeCol = this.getResizeColumn(screenX)!-1;
                 if (resizeCol !== null) {
                     this.resizingColumn = resizeCol;
                     this.resizingStartX = e.clientX;
                     this.resizeInitialWidth = this.widthArray[resizeCol]!;
                     e.preventDefault();
-                    return;
+                    // return;
                 }
             }
 
-            if (screenX <= this.headerWidth) {
-                const resizeRow = this.getResizeRow(gridY);
+            if (screenX >=0) {
+                const resizeRow = this.getResizeRow(screenY)!-1;
                 if (resizeRow !== null) {
                     this.resizingRow = resizeRow;
                     this.resizingStartY = e.clientY;
@@ -332,18 +330,17 @@ class ExcelVirtualScroller {
     }
 
     private getResizeColumn(x: number): number | null {
-        const approx = this.getColumnAtX(x);
-        for (let i = Math.max(0, approx - 1); i <= Math.min(this.maxCols - 1, approx + 1); i++) {
-            const border = this.prefWidthArray[i]! + this.widthArray[i]!;
+
+        for (let i =0;i<this.prefWidthArray.length; i++) {
+            const border = this.prefWidthArray[i]! //+ this.widthArray[i]!;
             if (Math.abs(x - border) <= 5) return i;
         }
         return null;
     }
 
     private getResizeRow(y: number): number | null {
-        const approx = this.getRowAtY(y);
-        for (let i = Math.max(0, approx - 1); i <= Math.min(this.maxRows - 1, approx + 1); i++) {
-            const border = this.prefHeightArray[i]! + this.heightArray[i]!;
+        for (let i =0;i<this.prefHeightArray.length; i++) {
+            const border = this.prefHeightArray[i]!// + this.heightArray[i]!;
             if (Math.abs(y - border) <= 5) return i;
         }
         return null;
@@ -352,8 +349,8 @@ class ExcelVirtualScroller {
     private getCellCoordsFromMouseEvent(e: MouseEvent): Cell | null {
         const rect = this.scrollContainer.getBoundingClientRect();
 
-        const gridX = (e.clientX - rect.left) + this.scrollX - this.headerWidth;
-        const gridY = (e.clientY - rect.top) + this.scrollY - this.headerHeight;
+        const gridX = (e.clientX - rect.left) + this.scrollX 
+        const gridY = (e.clientY - rect.top) + this.scrollY 
 
         if (gridX < 0 || gridY < 0) return null; // click landed on a header
 
