@@ -10,6 +10,9 @@ class ExcelVirtualScroller {
     private scrollContent: HTMLDivElement;
     private cellEditor: HTMLInputElement;
 
+    private SelectionRange: SelectionRange | null = null;
+    private isSelecting = false
+
     private isCommitting = false;
 
     private colWidth = 100;
@@ -202,34 +205,79 @@ class ExcelVirtualScroller {
             }
 
             const cell = this.getCellCoordsFromMouseEvent(e);
-            // console.log(cell)
+            console.log(cell)
             if (cell) {
+                console.log("hello")
                 this.selectedCell = cell;
+                this.isSelecting = true;
+                // this.SelectionRange!.startColumn = cell.col
+                // this.SelectionRange!.startRow = cell.row
+                // this.SelectionRange!.endRow = cell.row
+                // this.SelectionRange!.endColumn = cell.col
+                this.SelectionRange = {
+                    startColumn: cell.col,
+                    startRow: cell.row,
+                    endRow: cell.row,
+                    endColumn: cell.col
+                }
+                console.log(this.SelectionRange)
                 this.draw();
             }
-            
+
         });
 
         document.addEventListener('mousemove', (e: MouseEvent) => {
-            if (this.resizingColumn === null && this.resizingRow === null) {
-                this.updateResizeCursor(e);
+            // 1. If actively selecting cells, process selection and exit
+            if (this.isSelecting) {
+                this.SelectionHandler(e);
+                this.draw();
                 return;
             }
-            this.pendingMouseEvent = e;
-            if (!this.resizePending) {
-                this.resizePending = true;
-                requestAnimationFrame(() => this.processResizeDrag());
+
+            // 2. If actively dragging a resize bar, buffer the event and request a frame
+            if (this.resizingColumn !== null || this.resizingRow !== null) {
+                this.pendingMouseEvent = e;
+                if (!this.resizePending) {
+                    this.resizePending = true;
+                    requestAnimationFrame(() => this.processResizeDrag());
+                }
+                return;
             }
+
+            // 3. Only update hover cursors if the user is not actively dragging anything
+            this.updateResizeCursor(e);
         });
 
-        document.addEventListener('mouseup', () => {
-            this.finalizeResize();
+
+
+        document.addEventListener('mouseup', (e: MouseEvent) => {
+            // 1. Cleanly finalize cell selection
+            if (this.isSelecting) {
+                this.SelectionHandler(e);
+                this.isSelecting = false; // Prevents sticky selection dragging
+                this.draw();
+                return;
+            }
+
+            // 2. Cleanly finalize column or row resizing
+            if (this.resizingColumn !== null || this.resizingRow !== null) {
+                // Force the final calculation immediately if the animation frame hasn't fired yet
+                if (this.resizePending) {
+                    this.processResizeDrag();
+                }
+                this.finalizeResize();
+                this.draw();
+            }
         });
 
         this.scrollContainer.addEventListener('dblclick', (e: MouseEvent) => {
             const cell = this.getCellCoordsFromMouseEvent(e);
             if (cell) {
                 this.startEditingCell(cell.row, cell.col);
+            }
+            if (this.isSelecting) {
+                this.isSelecting = false
+                this.draw()
             }
         });
 
@@ -245,8 +293,8 @@ class ExcelVirtualScroller {
             console.log("blur");
             if (this.editingCell) {
                 this.commitCurrentEdit();
+                return;
             }
-            
         });
 
 
@@ -276,6 +324,15 @@ class ExcelVirtualScroller {
             }
         });
     }
+
+    private SelectionHandler(e: MouseEvent): void {
+        const activeCell = this.getCellCoordsFromMouseEvent(e);
+        this.SelectionRange!.startRow = Math.min(activeCell!.row, this.selectedCell!.row);
+        this.SelectionRange!.startColumn = Math.min(activeCell!.col, this.selectedCell!.col)
+        this.SelectionRange!.endRow = Math.max(activeCell!.row, this.selectedCell!.row);
+        this.SelectionRange!.endColumn = Math.max(activeCell!.col, this.selectedCell!.col)
+    }
+
 
     private processResizeDrag(): void {
         this.resizePending = false;
@@ -538,6 +595,15 @@ class ExcelVirtualScroller {
         this.ctx.strokeStyle = '#107c41';
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(x, y, this.widthArray[col]!, this.heightArray[row]!);
+
+        // console.log("hii")
+        this.ctx.strokeStyle = '#107c41'
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(this.SelectionRange!.startRow, this.SelectionRange!.startColumn, this.SelectionRange!.endRow - this.SelectionRange!.startColumn, this.SelectionRange!.endColumn - this.SelectionRange!.startColumn);
+        this.ctx.fillStyle = "rgba(33,115,70,0.1)"
+        this.ctx.fillRect(this.SelectionRange!.startRow, this.SelectionRange!.startColumn, this.SelectionRange!.endRow - this.SelectionRange!.startColumn, this.SelectionRange!.endColumn - this.SelectionRange!.startColumn);
+
+
     }
 
     private drawVirtualHeaders(viewWidth: number, viewHeight: number): void {

@@ -18,9 +18,10 @@ for (let i = 1; i < 50000; i++) {
 }
 
  export interface SelectionRange {
-    start: Cell;
-    end: Cell;
-    type: 'cell' | 'row' | 'column';
+    startRow: number;
+    startColumn: number;
+    endRow:number;
+    endColumn:number;
 }
 
 export type EditAction =
