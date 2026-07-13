@@ -24,12 +24,19 @@ for (let i = 1; i < 50000; i++) {
     endColumn:number;
 }
 
-export type EditAction =
-    | { type: 'cell-edit'; row: number; col: number; oldValue: string; newValue: string }
-    | { type: 'col-resize'; col: number; oldWidth: number; newWidth: number }
-    | { type: 'row-resize'; row: number; oldHeight: number; newHeight: number };
+ export interface RangeSummary {
+     count: number;
+     min: number | null;
+     max: number | null;
+     sum: number;
+     average: number | null;
+ }
+
+ export type EditAction =
+     | { type: 'cell-edit'; row: number; col: number; oldValue: string; newValue: string }
+     | { type: 'col-resize'; col: number; oldWidth: number; newWidth: number }
+     | { type: 'row-resize'; row: number; oldHeight: number; newHeight: number };
 
 
 
 export const initialSparseData: GridData = dataset
-

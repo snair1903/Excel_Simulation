@@ -8,13 +8,24 @@
 </head>
 <body>
    <div id="grid-container">
-        <canvas id="excelCanvas"></canvas>
-        <input type="text" id="cell-editor" />
-        <div id="scroll-container">
-            <div id="scroll-content"></div>
-        </div>
-    </div>
-    <div id = "summary-container"></div>
-    <script type="module" src="/dist/index.js"></script>
+       <div id="canvas-shell">
+           <canvas id="excelCanvas"></canvas>
+           <input type="text" id="cell-editor" />
+           <div id="scroll-container">
+               <div id="scroll-content"></div>
+           </div>
+       </div>
+       <div id="summary-bar" aria-live="polite">
+           <div class="summary-title">Summary</div>
+           <div class="summary-stats">
+               <div class="summary-stat"><span>Count</span><strong id="summary-count">0</strong></div>
+               <div class="summary-stat"><span>Min</span><strong id="summary-min">—</strong></div>
+               <div class="summary-stat"><span>Max</span><strong id="summary-max">—</strong></div>
+               <div class="summary-stat"><span>Sum</span><strong id="summary-sum">0</strong></div>
+               <div class="summary-stat"><span>Average</span><strong id="summary-average">—</strong></div>
+           </div>
+       </div>
+   </div>
+   <script type="module" src="/dist/index.js"></script>
 </body>
 </html>

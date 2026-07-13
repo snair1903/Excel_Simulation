@@ -13,6 +13,15 @@ body {
     position: relative;
     width: 100%;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#canvas-shell {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 #excelCanvas {
@@ -59,4 +68,49 @@ body {
     line-height: 21px;
     padding: 0 0 0 5px;
     margin: 0;
+}
+
+#summary-bar {
+    flex: 0 0 92px;
+    box-sizing: border-box;
+    border-top: 1px solid #d0d0d0;
+    background: #f8f9fa;
+    padding: 10px 14px 12px;
+    color: #1c1c1c;
+}
+
+.summary-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    color: #4a4a4a;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.summary-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.summary-stat span {
+    font-size: 11px;
+    color: #666666;
+}
+
+.summary-stat strong {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1c1c1c;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }

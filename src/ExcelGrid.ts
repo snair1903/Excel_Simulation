@@ -1,3 +1,4 @@
+import { headerHeight,headerWidth,maxCols,maxRows } from "./Constants/Constant.js";
 import { initialSparseData, type Cell, type EditAction } from "./models.js";
 import { GridGeometry } from "./GridGeometry.js";
 import { GridDataStore } from "./GridDataStore.js";
@@ -6,15 +7,22 @@ import { SelectionManager } from "./SelectionManager.js";
 import { CellEditorController } from "./CellEditorController.js";
 import { ResizeController } from "./ResizeController.js";
 import { GridRenderer } from "./GridRenderer.js";
-import { headerHeight,headerWidth } from "./Constants/Constant.js";
+import type { RangeSummary } from "./models.js";
+
 
 export class ExcelGrid {
     private readonly canvas: HTMLCanvasElement;
     private readonly ctx: CanvasRenderingContext2D;
+    private readonly canvasShell: HTMLDivElement;
 
     private readonly scrollContainer: HTMLDivElement;
     private readonly scrollContent: HTMLDivElement;
     private readonly cellEditor: HTMLInputElement;
+    private readonly summaryCount: HTMLElement;
+    private readonly summaryMin: HTMLElement;
+    private readonly summaryMax: HTMLElement;
+    private readonly summarySum: HTMLElement;
+    private readonly summaryAverage: HTMLElement;
 
     private scrollX = 0;
     private scrollY = 0;
@@ -31,10 +39,16 @@ export class ExcelGrid {
     constructor() {
         this.canvas = document.getElementById('excelCanvas') as HTMLCanvasElement;
         this.ctx = this.canvas.getContext('2d')!;
+        this.canvasShell = document.getElementById('canvas-shell') as HTMLDivElement;
 
         this.scrollContainer = document.getElementById('scroll-container') as HTMLDivElement;
         this.scrollContent = document.getElementById('scroll-content') as HTMLDivElement;
         this.cellEditor = document.getElementById('cell-editor') as HTMLInputElement;
+        this.summaryCount = document.getElementById('summary-count') as HTMLElement;
+        this.summaryMin = document.getElementById('summary-min') as HTMLElement;
+        this.summaryMax = document.getElementById('summary-max') as HTMLElement;
+        this.summarySum = document.getElementById('summary-sum') as HTMLElement;
+        this.summaryAverage = document.getElementById('summary-average') as HTMLElement;
 
         this.editor = new CellEditorController(
             this.cellEditor,
@@ -61,8 +75,8 @@ export class ExcelGrid {
 
     public initCanvasScaling(): void {
         const dpr = window.devicePixelRatio || 1;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+        const w = this.canvasShell.clientWidth;
+        const h = this.canvasShell.clientHeight;
 
         this.canvas.width = w * dpr;
         this.canvas.height = h * dpr;
@@ -87,11 +101,11 @@ export class ExcelGrid {
         });
     }
 
+    
     private toGridPoint(e: MouseEvent): { screenX: number; screenY: number; gridX: number; gridY: number } {
         const rect = this.scrollContainer.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
-        console.log(screenX,screenY)
         return {
             screenX,
             screenY,
@@ -101,24 +115,19 @@ export class ExcelGrid {
     }
 
     private getCellCoordsFromMouseEvent(e: MouseEvent): Cell | null {
-        console.log("hii")
-        const { screenX,screenY, gridX, gridY } = this.toGridPoint(e);
-        console.log(gridX,gridY)
-        let col =0;
-        let row =0;
-        if(screenX<0)
-            { col = -1}
-        else
-            { col = this.geometry.getColumnAtX(gridX);}
-        if(screenY<0)
-            { row = -1}
-        else
-            { row = this.geometry.getRowAtY(gridY);}
-        console.log(row,col,"rowcol");
-       
-        return {row,col};
+        const { gridX, gridY } = this.toGridPoint(e);
+        if (gridX < 0 || gridY < 0) return null;
+
+        const col = this.geometry.getColumnAtX(gridX);
+        const row = this.geometry.getRowAtY(gridY);
+
+        if (col >= 0 && col < maxCols && row >= 0 && row < maxRows) {
+            return { row, col };
+        }
+        return null;
     }
 
+   
 
     private setupInteractionListeners(): void {
         this.scrollContainer.addEventListener('mousedown', (e: MouseEvent) => this.handleMouseDown(e));
@@ -180,9 +189,8 @@ export class ExcelGrid {
         if (this.editor.isEditing()) {
             this.editor.commit();
         }
-        console.log("a")
+
         const cell = this.getCellCoordsFromMouseEvent(e);
-        console.log(cell,"b")
         if (cell) {
             this.selection.startSelection(cell);
             this.draw();
@@ -297,13 +305,43 @@ export class ExcelGrid {
 
 
     public draw(): void {
+        this.updateSummaryBar();
+
         this.renderer.draw(
-            window.innerWidth,
-            window.innerHeight,
+            this.canvasShell.clientWidth,
+            this.canvasShell.clientHeight,
             this.scrollX,
             this.scrollY,
             this.selection,
             this.editor.editingCell,
         );
+    }
+
+    private updateSummaryBar(): void {
+        const summary = this.getCurrentSelectionSummary();
+
+        this.summaryCount.textContent = summary.count.toString();
+        this.summaryMin.textContent = this.formatSummaryValue(summary.min);
+        this.summaryMax.textContent = this.formatSummaryValue(summary.max);
+        this.summarySum.textContent = this.formatSummaryValue(summary.sum);
+        this.summaryAverage.textContent = this.formatSummaryValue(summary.average);
+    }
+
+    private getCurrentSelectionSummary(): RangeSummary {
+        const range = this.selection.selectionRange;
+        if (!range) {
+            return { count: 0, min: null, max: null, sum: 0, average: null };
+        }
+
+        return this.dataStore.getNumericSummary(
+            range.startRow,
+            range.startColumn,
+            range.endRow,
+            range.endColumn,
+        );
+    }
+
+    private formatSummaryValue(value: number | null): string {
+        return value === null ? '—' : value.toString();
     }
 }
