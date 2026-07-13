@@ -1,3 +1,4 @@
+import { maxCols, maxRows } from "./Constants/Constant.js";
 import type { Cell, SelectionRange } from "./models.js";
 
 export class SelectionManager {
@@ -14,6 +15,16 @@ export class SelectionManager {
             endRow: cell.row,
             endColumn: cell.col,
         };
+        if(this.selectedCell.col ==-1){
+  
+            this.selectionRange.startColumn =0
+            this.selectionRange.endColumn = maxCols-1;
+        }
+        if(this.selectedCell.row ==-1){
+
+            this.selectionRange.startRow = 0;
+            this.selectionRange.endRow = maxRows-1;
+        }
     }
 
     public updateSelection(activeCell: Cell): void {

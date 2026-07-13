@@ -1,6 +1,7 @@
 import type { Cell } from "./models.js";
 import { GridGeometry } from "./GridGeometry.js";
 import { GridDataStore } from "./GridDataStore.js";
+import { headerHeight,headerWidth } from "./Constants/Constant.js";
 
 export class CellEditorController {
     public editingCell: Cell | null = null;
@@ -36,8 +37,8 @@ export class CellEditorController {
         if (!this.editingCell) return;
         const { row, col } = this.editingCell;
 
-        const viewX = this.geometry.getColumnStart(col) - scrollX + this.geometry.headerWidth;
-        const viewY = this.geometry.getRowStart(row) - scrollY + this.geometry.headerHeight;
+        const viewX = this.geometry.getColumnStart(col) - scrollX + headerWidth;
+        const viewY = this.geometry.getRowStart(row) - scrollY + headerHeight;
 
         this.cellEditor.style.left = `${viewX - 1}px`;
         this.cellEditor.style.top = `${viewY - 1}px`;

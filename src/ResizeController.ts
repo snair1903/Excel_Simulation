@@ -7,11 +7,7 @@ export interface ResizeResult {
     newSize: number;
 }
 
-/**
- * Handles dragging a column or row border to resize it. Mouse-move
- * events are buffered and applied once per animation frame so a fast
- * drag doesn't trigger a layout/prefix-sum rebuild on every pixel.
- */
+
 export class ResizeController {
     private resizingColumn: number | null = null;
     private resizingRow: number | null = null;

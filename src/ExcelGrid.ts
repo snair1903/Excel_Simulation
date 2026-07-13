@@ -6,6 +6,7 @@ import { SelectionManager } from "./SelectionManager.js";
 import { CellEditorController } from "./CellEditorController.js";
 import { ResizeController } from "./ResizeController.js";
 import { GridRenderer } from "./GridRenderer.js";
+import { headerHeight,headerWidth } from "./Constants/Constant.js";
 
 export class ExcelGrid {
     private readonly canvas: HTMLCanvasElement;
@@ -90,6 +91,7 @@ export class ExcelGrid {
         const rect = this.scrollContainer.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
+        console.log(screenX,screenY)
         return {
             screenX,
             screenY,
@@ -99,16 +101,22 @@ export class ExcelGrid {
     }
 
     private getCellCoordsFromMouseEvent(e: MouseEvent): Cell | null {
-        const { gridX, gridY } = this.toGridPoint(e);
-        if (gridX < 0 || gridY < 0) return null;
-
-        const col = this.geometry.getColumnAtX(gridX);
-        const row = this.geometry.getRowAtY(gridY);
-
-        if (col >= 0 && col < this.geometry.maxCols && row >= 0 && row < this.geometry.maxRows) {
-            return { row, col };
-        }
-        return null;
+        console.log("hii")
+        const { screenX,screenY, gridX, gridY } = this.toGridPoint(e);
+        console.log(gridX,gridY)
+        let col =0;
+        let row =0;
+        if(screenX<0)
+            { col = -1}
+        else
+            { col = this.geometry.getColumnAtX(gridX);}
+        if(screenY<0)
+            { row = -1}
+        else
+            { row = this.geometry.getRowAtY(gridY);}
+        console.log(row,col,"rowcol");
+       
+        return {row,col};
     }
 
 
@@ -154,8 +162,8 @@ export class ExcelGrid {
 
         const { screenX, screenY, gridX, gridY } = this.toGridPoint(e);
 
-        const nearTopStrip = screenY <= this.geometry.headerHeight;
-        const nearLeftStrip = screenX <= this.geometry.headerWidth;
+        const nearTopStrip = screenY <= headerHeight;
+        const nearLeftStrip = screenX <= headerWidth;
 
         const startedResize = this.resize.tryStartFromGridPoint(
             nearTopStrip ? gridX : null,
@@ -172,8 +180,9 @@ export class ExcelGrid {
         if (this.editor.isEditing()) {
             this.editor.commit();
         }
-
+        console.log("a")
         const cell = this.getCellCoordsFromMouseEvent(e);
+        console.log(cell,"b")
         if (cell) {
             this.selection.startSelection(cell);
             this.draw();
@@ -228,8 +237,8 @@ export class ExcelGrid {
 
     private updateHoverCursor(e: MouseEvent): void {
         const { screenX, screenY, gridX, gridY } = this.toGridPoint(e);
-        const nearTopStrip = screenY <= this.geometry.headerHeight;
-        const nearLeftStrip = screenX <= this.geometry.headerWidth;
+        const nearTopStrip = screenY <= headerHeight;
+        const nearLeftStrip = screenX <= headerWidth;
 
         this.scrollContainer.style.cursor = this.resize.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip);
     }

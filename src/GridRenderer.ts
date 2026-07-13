@@ -2,12 +2,7 @@ import type { Cell } from "./models.js";
 import { GridGeometry } from "./GridGeometry.js";
 import { GridDataStore } from "./GridDataStore.js";
 import { SelectionManager } from "./SelectionManager.js";
-
-/**
- * Everything that ends up on the canvas: cell contents, headers, and the
- * selection/selection-range highlight. Pure rendering - it reads state
- * from the other managers but never mutates it.
- */
+import { headerHeight,maxCols,maxRows,headerWidth } from "./Constants/Constant.js";
 export class GridRenderer {
     constructor(
         private readonly ctx: CanvasRenderingContext2D,
@@ -37,16 +32,16 @@ export class GridRenderer {
         ctx.lineWidth = 1;
 
         const startCol = geometry.getColumnAtX(scrollX);
-        const endCol = Math.min(geometry.maxCols - 1, geometry.getColumnAtX(scrollX + viewWidth - geometry.headerWidth));
+        const endCol = Math.min(maxCols - 1, geometry.getColumnAtX(scrollX + viewWidth - headerWidth));
 
         const startRow = geometry.getRowAtY(scrollY);
-        const endRow = Math.min(geometry.maxRows - 1, geometry.getRowAtY(scrollY + viewHeight - geometry.headerHeight));
+        const endRow = Math.min(maxRows - 1, geometry.getRowAtY(scrollY + viewHeight - headerHeight));
 
         for (let r = startRow; r <= endRow; r++) {
-            const cellTopY = geometry.getRowStart(r) - scrollY + geometry.headerHeight;
+            const cellTopY = geometry.getRowStart(r) - scrollY + headerHeight;
 
             for (let c = startCol; c <= endCol; c++) {
-                const cellLeftX = geometry.getColumnStart(c) - scrollX + geometry.headerWidth;
+                const cellLeftX = geometry.getColumnStart(c) - scrollX + headerWidth;
 
                 ctx.strokeStyle = '#e0e0e0';
                 ctx.strokeRect(cellLeftX, cellTopY, geometry.widthArray[c]!, geometry.heightArray[r]!);
@@ -71,10 +66,10 @@ export class GridRenderer {
         if (selection.selectionRange && selection.hasRangeSelection()) {
             const { startRow, startColumn, endRow, endColumn } = selection.selectionRange;
 
-            const x1 = geometry.getColumnStart(startColumn) - scrollX + geometry.headerWidth;
-            const y1 = geometry.getRowStart(startRow) - scrollY + geometry.headerHeight;
-            const x2 = geometry.getColumnStart(endColumn) + geometry.widthArray[endColumn]! - scrollX + geometry.headerWidth;
-            const y2 = geometry.getRowStart(endRow) + geometry.heightArray[endRow]! - scrollY + geometry.headerHeight;
+            const x1 = geometry.getColumnStart(startColumn) - scrollX + headerWidth;
+            const y1 = geometry.getRowStart(startRow) - scrollY + headerHeight;
+            const x2 = geometry.getColumnStart(endColumn) + geometry.widthArray[endColumn]! - scrollX + headerWidth;
+            const y2 = geometry.getRowStart(endRow) + geometry.heightArray[endRow]! - scrollY + headerHeight;
 
             ctx.fillStyle = 'rgba(33,115,70,0.1)';
             ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
@@ -84,14 +79,19 @@ export class GridRenderer {
         }
 
         const { row, col } = selection.selectedCell;
-        const x = geometry.getColumnStart(col) - scrollX + geometry.headerWidth;
-        const y = geometry.getRowStart(row) - scrollY + geometry.headerHeight;
+        const x = geometry.getColumnStart(col) - scrollX +headerWidth;
+        const y = geometry.getRowStart(row) - scrollY + headerHeight;
 
-        if (x + geometry.widthArray[col]! < geometry.headerWidth || y + geometry.heightArray[row]! < geometry.headerHeight) return;
+        if (x + geometry.widthArray[col]! < headerWidth || y + geometry.heightArray[row]! < headerHeight) return;
 
         ctx.strokeStyle = '#107c41';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.strokeRect(x, y, geometry.widthArray[col]!, geometry.heightArray[row]!);
+        ctx.fillStyle = '#ffffffb6';
+        ctx.fillRect(x, y, geometry.widthArray[col]!, geometry.heightArray[row]!);
+        
+        // ctx.strokeStyle = '#e0e0e0';
+        // ctx.strokeRect(x, y, geometry.widthArray[col]!, geometry.heightArray[row]!);
     }
 
     private drawVirtualHeaders(viewWidth: number, viewHeight: number, scrollX: number, scrollY: number): void {
@@ -100,35 +100,35 @@ export class GridRenderer {
         ctx.textAlign = 'center';
 
         const startCol = geometry.getColumnAtX(scrollX);
-        const endCol = Math.min(geometry.maxCols - 1, geometry.getColumnAtX(scrollX + viewWidth - geometry.headerWidth));
+        const endCol = Math.min(maxCols - 1, geometry.getColumnAtX(scrollX + viewWidth - headerWidth));
 
         const startRow = geometry.getRowAtY(scrollY);
-        const endRow = Math.min(geometry.maxRows - 1, geometry.getRowAtY(scrollY + viewHeight - geometry.headerHeight));
+        const endRow = Math.min(maxRows - 1, geometry.getRowAtY(scrollY + viewHeight - headerHeight));
 
         for (let c = startCol; c <= endCol; c++) {
-            const x = geometry.getColumnStart(c) - scrollX + geometry.headerWidth;
+            const x = geometry.getColumnStart(c) - scrollX + headerWidth;
             ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(x, 0, geometry.widthArray[c]!, geometry.headerHeight);
+            ctx.fillRect(x, 0, geometry.widthArray[c]!, headerHeight);
             ctx.strokeStyle = '#c0c0c0';
-            ctx.strokeRect(x, 0, geometry.widthArray[c]!, geometry.headerHeight);
+            ctx.strokeRect(x, 0, geometry.widthArray[c]!, headerHeight);
 
             ctx.fillStyle = '#444444';
             ctx.fillText(GridGeometry.generateColumnLabel(c), x + (geometry.widthArray[c]! / 2), 19);
         }
 
         for (let r = startRow; r <= endRow; r++) {
-            const y = geometry.getRowStart(r) - scrollY + geometry.headerHeight;
+            const y = geometry.getRowStart(r) - scrollY +headerHeight;
             ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(0, y, geometry.headerWidth, geometry.heightArray[r]!);
+            ctx.fillRect(0, y, headerWidth, geometry.heightArray[r]!);
             ctx.strokeStyle = '#c0c0c0';
-            ctx.strokeRect(0, y, geometry.headerWidth, geometry.heightArray[r]!);
+            ctx.strokeRect(0, y, headerWidth, geometry.heightArray[r]!);
             ctx.fillStyle = '#444444';
-            ctx.fillText((r + 1).toString(), geometry.headerWidth / 2, y + 16);
+            ctx.fillText((r + 1).toString(), headerWidth / 2, y + 16);
         }
 
         ctx.fillStyle = '#e8eaed';
-        ctx.fillRect(0, 0, geometry.headerWidth, geometry.headerHeight);
+        ctx.fillRect(0, 0, headerWidth, headerHeight);
         ctx.strokeStyle = '#c0c0c0';
-        ctx.strokeRect(0, 0, geometry.headerWidth, geometry.headerHeight);
+        ctx.strokeRect(0, 0, headerWidth, headerHeight);
     }
 }
