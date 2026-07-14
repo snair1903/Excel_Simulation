@@ -7,6 +7,15 @@ export class GridDataStore {
         return this.gridData[row]?.[col] ?? '';
     }
 
+    public loadData(newData: GridData): void {
+        for (const key of Object.keys(this.gridData)) {
+            delete this.gridData[Number(key)];
+        }
+        for (const [row, rowValues] of Object.entries(newData)) {
+            this.gridData[Number(row)] = { ...rowValues };
+        }
+    }
+
     public setValue(row: number, col: number, value: string): void {
         if (!this.gridData[row]) {
             this.gridData[row] = {};

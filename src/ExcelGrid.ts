@@ -1,5 +1,5 @@
-import { headerHeight,headerWidth,maxCols,maxRows } from "./Constants/Constant.js";
-import { initialSparseData, type Cell, type EditAction } from "./models.js";
+import { headerHeight, headerWidth, HEADER_SELECTION_SENTINEL } from "./Constants/Constant.js";
+import { initialSparseData, type Cell, type EditAction, type GridData } from "./models.js";
 import { GridGeometry } from "./GridGeometry.js";
 import { GridDataStore } from "./GridDataStore.js";
 import { HistoryManager } from "./HistoryManager.js";
@@ -7,6 +7,7 @@ import { SelectionManager } from "./SelectionManager.js";
 import { CellEditorController } from "./CellEditorController.js";
 import { ResizeController } from "./ResizeController.js";
 import { GridRenderer } from "./GridRenderer.js";
+import { JsonDataLoader } from "./JsonDataLoader.js";
 import type { RangeSummary } from "./models.js";
 
 
@@ -23,6 +24,8 @@ export class ExcelGrid {
     private readonly summaryMax: HTMLElement;
     private readonly summarySum: HTMLElement;
     private readonly summaryAverage: HTMLElement;
+    private readonly jsonFileInput: HTMLInputElement | null;
+    private readonly jsonStatus: HTMLElement | null;
 
     private scrollX = 0;
     private scrollY = 0;
@@ -49,6 +52,8 @@ export class ExcelGrid {
         this.summaryMax = document.getElementById('summary-max') as HTMLElement;
         this.summarySum = document.getElementById('summary-sum') as HTMLElement;
         this.summaryAverage = document.getElementById('summary-average') as HTMLElement;
+        this.jsonFileInput = document.getElementById('json-file-input') as HTMLInputElement | null;
+        this.jsonStatus = document.getElementById('json-status') as HTMLElement | null;
 
         this.editor = new CellEditorController(
             this.cellEditor,
@@ -66,6 +71,7 @@ export class ExcelGrid {
         this.initCanvasScaling();
         this.setupScrollBinding();
         this.setupInteractionListeners();
+        this.setupJsonImport();
     }
 
     private syncVirtualScrollDimensions(): void {
@@ -101,45 +107,57 @@ export class ExcelGrid {
         });
     }
 
-    
+
     private toGridPoint(e: MouseEvent): { screenX: number; screenY: number; gridX: number; gridY: number } {
-        const rect = this.scrollContainer.getBoundingClientRect();
+        const rect = this.canvasShell.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
         return {
             screenX,
             screenY,
-            gridX: screenX + this.scrollX,
-            gridY: screenY + this.scrollY,
+            gridX: screenX - headerWidth + this.scrollX,
+            gridY: screenY - headerHeight + this.scrollY,
         };
     }
 
-    private getCellCoordsFromMouseEvent(e: MouseEvent): Cell | null {
+    /** Resolves the cell under the cursor for drag-continuation purposes. Always returns a value
+     *  clamped to the grid bounds (clicks above/left of the grid clamp to row/col 0). */
+    private getCellCoordsFromMouseEvent(e: MouseEvent): Cell {
         const { gridX, gridY } = this.toGridPoint(e);
-        if (gridX < 0 || gridY < 0) return null;
-
         const col = this.geometry.getColumnAtX(gridX);
         const row = this.geometry.getRowAtY(gridY);
-
-        if (col >= 0 && col < maxCols && row >= 0 && row < maxRows) {
-            return { row, col };
-        }
-        return null;
+        return { row, col };
     }
 
-   
+    /** Resolves what a mousedown should start selecting: a single cell, or - if the click landed in
+     *  a header strip - an entire row, an entire column, or (top-left corner) the whole sheet. */
+    private resolveSelectionStart(e: MouseEvent): Cell {
+        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e);
+        const inColumnHeaderStrip = screenY < headerHeight;
+        const inRowHeaderStrip = screenX < headerWidth;
+
+        if (inColumnHeaderStrip && inRowHeaderStrip) {
+            return { row: HEADER_SELECTION_SENTINEL, col: HEADER_SELECTION_SENTINEL };
+        }
+        if (inColumnHeaderStrip) {
+            return { row: HEADER_SELECTION_SENTINEL, col: this.geometry.getColumnAtX(gridX) };
+        }
+        if (inRowHeaderStrip) {
+            return { row: this.geometry.getRowAtY(gridY), col: HEADER_SELECTION_SENTINEL };
+        }
+        return { row: this.geometry.getRowAtY(gridY), col: this.geometry.getColumnAtX(gridX) };
+    }
+
 
     private setupInteractionListeners(): void {
-        this.scrollContainer.addEventListener('mousedown', (e: MouseEvent) => this.handleMouseDown(e));
+        this.canvasShell.addEventListener('mousedown', (e: MouseEvent) => this.handleMouseDown(e));
         document.addEventListener('mousemove', (e: MouseEvent) => this.handleMouseMove(e));
         document.addEventListener('mouseup', (e: MouseEvent) => this.handleMouseUp(e));
 
         this.scrollContainer.addEventListener('dblclick', (e: MouseEvent) => {
             const cell = this.getCellCoordsFromMouseEvent(e);
-            if (cell) {
-                this.editor.startEditing(cell.row, cell.col, this.scrollX, this.scrollY);
-                this.selection.selectedCell = cell;
-            }
+            this.editor.startEditing(cell.row, cell.col, this.scrollX, this.scrollY);
+            this.selection.selectedCell = cell;
             this.selection.endSelection();
             this.draw();
         });
@@ -166,6 +184,46 @@ export class ExcelGrid {
         window.addEventListener('keydown', (e: KeyboardEvent) => this.handleGlobalKeyDown(e));
     }
 
+    private setupJsonImport(): void {
+        if (!this.jsonFileInput) return;
+
+        this.jsonFileInput.addEventListener('change', () => {
+            const file = this.jsonFileInput!.files?.[0];
+            if (!file) return;
+
+            JsonDataLoader.loadFromFile(file)
+                .then((newData) => {
+                    this.loadNewData(newData);
+                    this.setJsonStatus(`Loaded "${file.name}".`, false);
+                })
+                .catch((err: unknown) => {
+                    const message = err instanceof Error ? err.message : 'Failed to load JSON file.';
+                    this.setJsonStatus(message, true);
+                })
+                .finally(() => {
+                    this.jsonFileInput!.value = '';
+                });
+        });
+    }
+
+    private loadNewData(newData: GridData): void {
+        this.editor.cancel();
+        this.dataStore.loadData(newData);
+        this.history.clear();
+        this.selection.selectedCell = null;
+        this.selection.selectionRange = null;
+        this.scrollContainer.scrollTo(0, 0);
+        this.scrollX = 0;
+        this.scrollY = 0;
+        this.draw();
+    }
+
+    private setJsonStatus(message: string, isError: boolean): void {
+        if (!this.jsonStatus) return;
+        this.jsonStatus.textContent = message;
+        this.jsonStatus.classList.toggle('json-status-error', isError);
+    }
+
     private handleMouseDown(e: MouseEvent): void {
         this.editor.blur(); // commits any in-progress edit via the blur listener
 
@@ -190,17 +248,15 @@ export class ExcelGrid {
             this.editor.commit();
         }
 
-        const cell = this.getCellCoordsFromMouseEvent(e);
-        if (cell) {
-            this.selection.startSelection(cell);
-            this.draw();
-        }
+        const cell = this.resolveSelectionStart(e);
+        this.selection.startSelection(cell);
+        this.draw();
     }
 
     private handleMouseMove(e: MouseEvent): void {
         if (this.selection.isSelecting) {
             const cell = this.getCellCoordsFromMouseEvent(e);
-            if (cell) this.selection.updateSelection(cell);
+            this.selection.updateSelection(cell);
             this.draw();
             return;
         }
@@ -221,7 +277,7 @@ export class ExcelGrid {
     private handleMouseUp(e: MouseEvent): void {
         if (this.selection.isSelecting) {
             const cell = this.getCellCoordsFromMouseEvent(e);
-            if (cell) this.selection.updateSelection(cell);
+            this.selection.updateSelection(cell);
             this.selection.endSelection();
             this.draw();
             return;
@@ -248,7 +304,12 @@ export class ExcelGrid {
         const nearTopStrip = screenY <= headerHeight;
         const nearLeftStrip = screenX <= headerWidth;
 
-        this.scrollContainer.style.cursor = this.resize.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip);
+        const resizeCursor = this.resize.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip);
+        if (resizeCursor !== 'default') {
+            this.canvasShell.style.cursor = resizeCursor;
+            return;
+        }
+        this.canvasShell.style.cursor = (nearTopStrip || nearLeftStrip) ? 'cell' : 'default';
     }
 
     private handleGlobalKeyDown(e: KeyboardEvent): void {
@@ -271,6 +332,7 @@ export class ExcelGrid {
         }
         if (!modifier && this.selection.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
             const { row, col } = this.selection.selectedCell;
+            if (row === HEADER_SELECTION_SENTINEL || col === HEADER_SELECTION_SENTINEL) return;
             const oldValue = this.dataStore.getValue(row, col);
             if (oldValue === '') return;
             this.history.push({ type: 'cell-edit', row, col, oldValue, newValue: '' });

@@ -1,7 +1,7 @@
 import type { Cell } from "./models.js";
 import { GridGeometry } from "./GridGeometry.js";
 import { GridDataStore } from "./GridDataStore.js";
-import { headerHeight,headerWidth } from "./Constants/Constant.js";
+import { headerHeight,headerWidth,editorBorderInsetPx,editorSizePaddingPx } from "./Constants/Constant.js";
 
 export class CellEditorController {
     public editingCell: Cell | null = null;
@@ -40,10 +40,10 @@ export class CellEditorController {
         const viewX = this.geometry.getColumnStart(col) - scrollX + headerWidth;
         const viewY = this.geometry.getRowStart(row) - scrollY + headerHeight;
 
-        this.cellEditor.style.left = `${viewX - 1}px`;
-        this.cellEditor.style.top = `${viewY - 1}px`;
-        this.cellEditor.style.width = `${this.geometry.widthArray[col]! + 2}px`;
-        this.cellEditor.style.height = `${this.geometry.heightArray[row]! + 2}px`;
+        this.cellEditor.style.left = `${viewX - editorBorderInsetPx}px`;
+        this.cellEditor.style.top = `${viewY - editorBorderInsetPx}px`;
+        this.cellEditor.style.width = `${this.geometry.widthArray[col]! + editorSizePaddingPx}px`;
+        this.cellEditor.style.height = `${this.geometry.heightArray[row]! + editorSizePaddingPx}px`;
     }
 
     /** Requests that focus leave the input, which triggers commit via the blur listener. */

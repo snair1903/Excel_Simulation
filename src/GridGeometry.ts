@@ -1,4 +1,4 @@
-import { maxCols,colWidth,maxRows,rowHeight,minColWidth,minRowHeight } from "./Constants/Constant.js";
+import { maxCols,colWidth,maxRows,rowHeight,minColWidth,minRowHeight,resizeBorderHitTolerancePx } from "./Constants/Constant.js";
 
 export class GridGeometry {
     
@@ -95,18 +95,17 @@ export class GridGeometry {
     public getResizeColumnBorder(x: number): number | null {
         for (let i = 1; i <= maxCols; i++) {
             const border = this.prefWidthArray[i]!;
-            if (Math.abs(x - border) <= 5) return i - 1;
-            if (border > x + 5) break; // prefix sums are increasing, safe to stop early
+            if (Math.abs(x - border) <= resizeBorderHitTolerancePx) return i - 1;
+            if (border > x + resizeBorderHitTolerancePx) break; 
         }
         return null;
     }
 
-    /** Same as {@link getResizeColumnBorder}, for row borders. */
     public getResizeRowBorder(y: number): number | null {
         for (let i = 1; i <= maxRows; i++) {
             const border = this.prefHeightArray[i]!;
-            if (Math.abs(y - border) <= 5) return i - 1;
-            if (border > y + 5) break;
+            if (Math.abs(y - border) <= resizeBorderHitTolerancePx) return i - 1;
+            if (border > y + resizeBorderHitTolerancePx) break;
         }
         return null;
     }
