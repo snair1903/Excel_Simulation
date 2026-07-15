@@ -31,8 +31,8 @@ export class GridRenderer {
         selection: SelectionManager,
         editingCell: Cell | null,
     ): void {
-        this.ctx.fillStyle = colorGridBackground;
-        this.ctx.fillRect(0, 0, viewWidth, viewHeight);
+        // this.ctx.fillStyle = colorGridBackground;
+        this.ctx.clearRect(0, 0, viewWidth, viewHeight);
 
         this.drawVisibleCells(scrollX, scrollY, visibleRange, editingCell);
         this.drawSelectionHighlight(scrollX, scrollY, selection, editingCell);
@@ -71,8 +71,6 @@ export class GridRenderer {
         if (!selection.selectionRange || editingCell) return;
         const { geometry, ctx } = this;
 
-        // Range fill (also used for full row/column/all selections), drawn first so a single-cell
-        // active-cell outline can sit on top of it.
         if (selection.hasRangeSelection()) {
             const { startRow, startColumn, endRow, endColumn } = selection.selectionRange;
 
@@ -88,8 +86,6 @@ export class GridRenderer {
             ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
         }
 
-        // The distinct "active cell" outline only makes sense for a single-cell anchor; row/column/all
-        // selections don't have a real anchor cell (its row or col would be the -1 sentinel).
         if (selection.mode !== 'cell' || !selection.selectedCell) return;
 
         const { row, col } = selection.selectedCell;
@@ -142,7 +138,6 @@ export class GridRenderer {
             ctx.fillText((r + 1).toString(), headerWidth / 2, y + rowHeaderTextBaselineOffset);
         }
 
-        // Top-left corner cell ("select all").
         ctx.fillStyle = selection.mode === 'all' ? colorHeaderSelectedFill : colorHeaderFill;
         ctx.fillRect(0, 0, headerWidth, headerHeight);
         ctx.strokeStyle = colorHeaderBorder;
