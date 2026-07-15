@@ -8,12 +8,29 @@
 </head>
 <body>
    <div id="grid-container">
-        <canvas id="excelCanvas"></canvas>
-        <input type="text" id="cell-editor" />
-        <div id="scroll-container">
-            <div id="scroll-content"></div>
-        </div>
-    </div>
-    <script type="module" src="/dist/index.js"></script>
+       <div id="toolbar">
+           <label id="json-load-button" for="json-file-input">Load JSON</label>
+           <input type="file" id="json-file-input" accept="application/json" hidden />
+           <span id="json-status" aria-live="polite"></span>
+       </div>
+       <div id="canvas-shell">
+           <canvas id="excelCanvas" tabindex="0" aria-label="Excel-like data grid. Use arrow keys to navigate, Enter to edit, Ctrl+Z/Ctrl+Y to undo/redo."></canvas>
+           <input type="text" id="cell-editor" aria-label="Cell editor" />
+           <div id="scroll-container" tabindex="0">
+               <div id="scroll-content"></div>
+           </div>
+       </div>
+       <div id="summary-bar" aria-live="polite">
+           <div class="summary-title">Summary</div>
+           <div class="summary-stats">
+               <div class="summary-stat"><span>Count</span><strong id="summary-count">0</strong></div>
+               <div class="summary-stat"><span>Min</span><strong id="summary-min">—</strong></div>
+               <div class="summary-stat"><span>Max</span><strong id="summary-max">—</strong></div>
+               <div class="summary-stat"><span>Sum</span><strong id="summary-sum">0</strong></div>
+               <div class="summary-stat"><span>Average</span><strong id="summary-average">—</strong></div>
+           </div>
+       </div>
+   </div>
+   <script type="module" src="/dist/index.js"></script>
 </body>
 </html>
