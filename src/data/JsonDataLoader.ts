@@ -1,4 +1,4 @@
-import type { GridData, JsonRecord } from "./models.js";
+import type { GridData, JsonRecord } from "../models/Types.js";
 
 export class JsonDataLoader {
     public static fromRecords(records: JsonRecord[]): GridData {

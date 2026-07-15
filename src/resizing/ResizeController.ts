@@ -1,12 +1,5 @@
-import { GridGeometry } from "./GridGeometry.js";
-
-export interface ResizeResult {
-    type: 'col-resize' | 'row-resize';
-    index: number;
-    oldSize: number;
-    newSize: number;
-}
-
+import { GridGeometry } from "../geometry/GridGeometry.js";
+import type { ResizeResult } from "../models/Types.js";
 
 export class ResizeController {
     private resizingColumn: number | null = null;
@@ -34,7 +27,7 @@ export class ResizeController {
         if (col !== null) {
             this.resizingColumn = col;
             this.resizingStartX = clientX;
-            this.resizeInitialWidth = this.geometry.widthArray[col]!;
+            this.resizeInitialWidth = this.geometry.columns.getSize(col);
             started = true;
         }
 
@@ -42,7 +35,7 @@ export class ResizeController {
         if (row !== null) {
             this.resizingRow = row;
             this.resizingStartY = clientY;
-            this.resizeInitialHeight = this.geometry.heightArray[row]!;
+            this.resizeInitialHeight = this.geometry.rows.getSize(row);
             started = true;
         }
 
@@ -71,26 +64,26 @@ export class ResizeController {
 
         if (this.resizingColumn !== null) {
             const deltaX = e.clientX - this.resizingStartX;
-            this.geometry.setColumnWidth(this.resizingColumn, this.resizeInitialWidth + deltaX);
+            this.geometry.columns.setSize(this.resizingColumn, this.resizeInitialWidth + deltaX);
             changed = true;
         }
 
         if (this.resizingRow !== null) {
             const deltaY = e.clientY - this.resizingStartY;
-            this.geometry.setRowHeight(this.resizingRow, this.resizeInitialHeight + deltaY);
+            this.geometry.rows.setSize(this.resizingRow, this.resizeInitialHeight + deltaY);
             changed = true;
         }
 
         return changed;
     }
 
-    /** Ends the drag and returns the resulting undo-able actions, if sizes actually changed. */
+    /** Ends the drag and returns the resulting undo-able results, if sizes actually changed. */
     public finalize(): ResizeResult[] {
         const results: ResizeResult[] = [];
 
         if (this.resizingColumn !== null) {
             const col = this.resizingColumn;
-            const newWidth = this.geometry.widthArray[col]!;
+            const newWidth = this.geometry.columns.getSize(col);
             if (newWidth !== this.resizeInitialWidth) {
                 results.push({ type: 'col-resize', index: col, oldSize: this.resizeInitialWidth, newSize: newWidth });
             }
@@ -99,7 +92,7 @@ export class ResizeController {
 
         if (this.resizingRow !== null) {
             const row = this.resizingRow;
-            const newHeight = this.geometry.heightArray[row]!;
+            const newHeight = this.geometry.rows.getSize(row);
             if (newHeight !== this.resizeInitialHeight) {
                 results.push({ type: 'row-resize', index: row, oldSize: this.resizeInitialHeight, newSize: newHeight });
             }

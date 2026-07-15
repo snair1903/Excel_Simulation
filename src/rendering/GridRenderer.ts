@@ -1,9 +1,11 @@
-import type { Cell } from "./models.js";
-import { GridGeometry } from "./GridGeometry.js";
-import { GridDataStore } from "./GridDataStore.js";
-import { SelectionManager } from "./SelectionManager.js";
+import type { Cell } from "../models/Types.js";
+import { GridGeometry } from "../geometry/GridGeometry.js";
+import { GridDataStore } from "../data/GridDataStore.js";
+import { SelectionManager } from "../selection/SelectionManager.js";
+import type { VisibleRange } from "../viewport/ViewportManager.js";
+import { ColumnModel } from "../geometry/ColumnModel.js";
 import {
-    headerHeight, maxCols, maxRows, headerWidth,
+    headerHeight, headerWidth,
     cellFont, cellTextPaddingX, cellTextBaselineOffset,
     headerFont, columnHeaderTextBaselineOffset, rowHeaderTextBaselineOffset,
     colorGridBackground, colorCellBorder, colorCellText,
@@ -11,7 +13,7 @@ import {
     colorHeaderSelectedFill, colorHeaderSelectedText,
     colorSelectionRangeFill, colorSelectionBorder, selectionBorderWidth,
     colorActiveCellFill,
-} from "./Constants/Constant.js";
+} from "../Constants/Constant.js";
 
 export class GridRenderer {
     constructor(
@@ -25,36 +27,33 @@ export class GridRenderer {
         viewHeight: number,
         scrollX: number,
         scrollY: number,
+        visibleRange: VisibleRange,
         selection: SelectionManager,
         editingCell: Cell | null,
     ): void {
         this.ctx.fillStyle = colorGridBackground;
         this.ctx.fillRect(0, 0, viewWidth, viewHeight);
 
-        this.drawVirtualCells(viewWidth, viewHeight, scrollX, scrollY, editingCell);
+        this.drawVisibleCells(scrollX, scrollY, visibleRange, editingCell);
         this.drawSelectionHighlight(scrollX, scrollY, selection, editingCell);
-        this.drawVirtualHeaders(viewWidth, viewHeight, scrollX, scrollY, selection);
+        this.drawVisibleHeaders(scrollX, scrollY, visibleRange, selection);
     }
 
-    private drawVirtualCells(viewWidth: number, viewHeight: number, scrollX: number, scrollY: number, editingCell: Cell | null): void {
+    private drawVisibleCells(scrollX: number, scrollY: number, range: VisibleRange, editingCell: Cell | null): void {
         const { geometry, dataStore, ctx } = this;
         ctx.font = cellFont;
         ctx.lineWidth = 1;
 
-        const startCol = geometry.getColumnAtX(scrollX);
-        const endCol = Math.min(maxCols - 1, geometry.getColumnAtX(scrollX + viewWidth - headerWidth));
+        for (let r = range.startRow; r <= range.endRow; r++) {
+            const cellTopY = geometry.rows.getStart(r) - scrollY + headerHeight;
+            const rowHeight = geometry.rows.getSize(r);
 
-        const startRow = geometry.getRowAtY(scrollY);
-        const endRow = Math.min(maxRows - 1, geometry.getRowAtY(scrollY + viewHeight - headerHeight));
-
-        for (let r = startRow; r <= endRow; r++) {
-            const cellTopY = geometry.getRowStart(r) - scrollY + headerHeight;
-
-            for (let c = startCol; c <= endCol; c++) {
-                const cellLeftX = geometry.getColumnStart(c) - scrollX + headerWidth;
+            for (let c = range.startCol; c <= range.endCol; c++) {
+                const cellLeftX = geometry.columns.getStart(c) - scrollX + headerWidth;
+                const colWidth = geometry.columns.getSize(c);
 
                 ctx.strokeStyle = colorCellBorder;
-                ctx.strokeRect(cellLeftX, cellTopY, geometry.widthArray[c]!, geometry.heightArray[r]!);
+                ctx.strokeRect(cellLeftX, cellTopY, colWidth, rowHeight);
 
                 const textVal = dataStore.getValue(r, c);
                 const isBeingEdited = editingCell !== null && editingCell.row === r && editingCell.col === c;
@@ -62,7 +61,7 @@ export class GridRenderer {
                 if (textVal && !isBeingEdited) {
                     ctx.fillStyle = colorCellText;
                     ctx.textAlign = 'left';
-                    ctx.fillText(textVal, cellLeftX + cellTextPaddingX, cellTopY + cellTextBaselineOffset, geometry.widthArray[c]! - cellTextPaddingX * 2);
+                    ctx.fillText(textVal, cellLeftX + cellTextPaddingX, cellTopY + cellTextBaselineOffset, colWidth - cellTextPaddingX * 2);
                 }
             }
         }
@@ -77,10 +76,10 @@ export class GridRenderer {
         if (selection.hasRangeSelection()) {
             const { startRow, startColumn, endRow, endColumn } = selection.selectionRange;
 
-            const x1 = geometry.getColumnStart(startColumn) - scrollX + headerWidth;
-            const y1 = geometry.getRowStart(startRow) - scrollY + headerHeight;
-            const x2 = geometry.getColumnStart(endColumn) + geometry.widthArray[endColumn]! - scrollX + headerWidth;
-            const y2 = geometry.getRowStart(endRow) + geometry.heightArray[endRow]! - scrollY + headerHeight;
+            const x1 = geometry.columns.getStart(startColumn) - scrollX + headerWidth;
+            const y1 = geometry.rows.getStart(startRow) - scrollY + headerHeight;
+            const x2 = geometry.columns.getStart(endColumn) + geometry.columns.getSize(endColumn) - scrollX + headerWidth;
+            const y2 = geometry.rows.getStart(endRow) + geometry.rows.getSize(endRow) - scrollY + headerHeight;
 
             ctx.fillStyle = colorSelectionRangeFill;
             ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
@@ -94,52 +93,50 @@ export class GridRenderer {
         if (selection.mode !== 'cell' || !selection.selectedCell) return;
 
         const { row, col } = selection.selectedCell;
-        const x = geometry.getColumnStart(col) - scrollX + headerWidth;
-        const y = geometry.getRowStart(row) - scrollY + headerHeight;
+        const x = geometry.columns.getStart(col) - scrollX + headerWidth;
+        const y = geometry.rows.getStart(row) - scrollY + headerHeight;
+        const width = geometry.columns.getSize(col);
+        const height = geometry.rows.getSize(row);
 
-        if (x + geometry.widthArray[col]! < headerWidth || y + geometry.heightArray[row]! < headerHeight) return;
+        if (x + width < headerWidth || y + height < headerHeight) return;
 
         ctx.strokeStyle = colorSelectionBorder;
         ctx.lineWidth = selectionBorderWidth;
-        ctx.strokeRect(x, y, geometry.widthArray[col]!, geometry.heightArray[row]!);
+        ctx.strokeRect(x, y, width, height);
         ctx.fillStyle = colorActiveCellFill;
-        ctx.fillRect(x, y, geometry.widthArray[col]!, geometry.heightArray[row]!);
+        ctx.fillRect(x, y, width, height);
     }
 
-    private drawVirtualHeaders(viewWidth: number, viewHeight: number, scrollX: number, scrollY: number, selection: SelectionManager): void {
+    private drawVisibleHeaders(scrollX: number, scrollY: number, range: VisibleRange, selection: SelectionManager): void {
         const { geometry, ctx } = this;
         ctx.font = headerFont;
         ctx.textAlign = 'center';
 
-        const range = selection.selectionRange;
+        const selRange = selection.selectionRange;
 
-        const startCol = geometry.getColumnAtX(scrollX);
-        const endCol = Math.min(maxCols - 1, geometry.getColumnAtX(scrollX + viewWidth - headerWidth));
-
-        const startRow = geometry.getRowAtY(scrollY);
-        const endRow = Math.min(maxRows - 1, geometry.getRowAtY(scrollY + viewHeight - headerHeight));
-
-        for (let c = startCol; c <= endCol; c++) {
-            const x = geometry.getColumnStart(c) - scrollX + headerWidth;
-            const isSelected = range !== null && c >= range.startColumn && c <= range.endColumn;
+        for (let c = range.startCol; c <= range.endCol; c++) {
+            const x = geometry.columns.getStart(c) - scrollX + headerWidth;
+            const width = geometry.columns.getSize(c);
+            const isSelected = selRange !== null && c >= selRange.startColumn && c <= selRange.endColumn;
 
             ctx.fillStyle = isSelected ? colorHeaderSelectedFill : colorHeaderFill;
-            ctx.fillRect(x, 0, geometry.widthArray[c]!, headerHeight);
+            ctx.fillRect(x, 0, width, headerHeight);
             ctx.strokeStyle = colorHeaderBorder;
-            ctx.strokeRect(x, 0, geometry.widthArray[c]!, headerHeight);
+            ctx.strokeRect(x, 0, width, headerHeight);
 
             ctx.fillStyle = isSelected ? colorHeaderSelectedText : colorHeaderText;
-            ctx.fillText(GridGeometry.generateColumnLabel(c), x + (geometry.widthArray[c]! / 2), columnHeaderTextBaselineOffset);
+            ctx.fillText(ColumnModel.generateColumnLabel(c), x + (width / 2), columnHeaderTextBaselineOffset);
         }
 
-        for (let r = startRow; r <= endRow; r++) {
-            const y = geometry.getRowStart(r) - scrollY + headerHeight;
-            const isSelected = range !== null && r >= range.startRow && r <= range.endRow;
+        for (let r = range.startRow; r <= range.endRow; r++) {
+            const y = geometry.rows.getStart(r) - scrollY + headerHeight;
+            const height = geometry.rows.getSize(r);
+            const isSelected = selRange !== null && r >= selRange.startRow && r <= selRange.endRow;
 
             ctx.fillStyle = isSelected ? colorHeaderSelectedFill : colorHeaderFill;
-            ctx.fillRect(0, y, headerWidth, geometry.heightArray[r]!);
+            ctx.fillRect(0, y, headerWidth, height);
             ctx.strokeStyle = colorHeaderBorder;
-            ctx.strokeRect(0, y, headerWidth, geometry.heightArray[r]!);
+            ctx.strokeRect(0, y, headerWidth, height);
 
             ctx.fillStyle = isSelected ? colorHeaderSelectedText : colorHeaderText;
             ctx.fillText((r + 1).toString(), headerWidth / 2, y + rowHeaderTextBaselineOffset);

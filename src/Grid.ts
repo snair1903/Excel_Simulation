@@ -1,17 +1,21 @@
 import { headerHeight, headerWidth, HEADER_SELECTION_SENTINEL } from "./Constants/Constant.js";
-import { initialSparseData, type Cell, type EditAction, type GridData } from "./models.js";
-import { GridGeometry } from "./GridGeometry.js";
-import { GridDataStore } from "./GridDataStore.js";
-import { HistoryManager } from "./HistoryManager.js";
-import { SelectionManager } from "./SelectionManager.js";
-import { CellEditorController } from "./CellEditorController.js";
-import { ResizeController } from "./ResizeController.js";
-import { GridRenderer } from "./GridRenderer.js";
-import { JsonDataLoader } from "./JsonDataLoader.js";
-import type { RangeSummary } from "./models.js";
+import type { Cell, GridData, RangeSummary } from "./models/Types.js";
+import { SampleDatasetGenerator } from "./models/SampleDatasetGenerator.js";
+import { GridGeometry } from "./geometry/GridGeometry.js";
+import { ViewportManager } from "./viewport/ViewportManager.js";
+import { GridDataStore } from "./data/GridDataStore.js";
+import { JsonDataLoader } from "./data/JsonDataLoader.js";
+import { SummaryCalculator } from "./calculation/SummaryCalculator.js";
+import { SelectionManager } from "./selection/SelectionManager.js";
+import { EditManager } from "./editing/EditManager.js";
+import { ResizeController } from "./resizing/ResizeController.js";
+import { GridRenderer } from "./rendering/GridRenderer.js";
+import { CommandManager } from "./commands/CommandManager.js";
+import { EditCellCommand } from "./commands/EditCellCommand.js";
+import { ResizeColumnCommand } from "./commands/ResizeColumnCommand.js";
+import { ResizeRowCommand } from "./commands/ResizeRowCommand.js";
 
-
-export class ExcelGrid {
+export class Grid {
     private readonly canvas: HTMLCanvasElement;
     private readonly ctx: CanvasRenderingContext2D;
     private readonly canvasShell: HTMLDivElement;
@@ -31,12 +35,14 @@ export class ExcelGrid {
     private scrollY = 0;
 
     private readonly geometry = new GridGeometry();
-    private readonly dataStore = new GridDataStore(initialSparseData);
+    private readonly viewport = new ViewportManager(this.geometry);
+    private readonly dataStore = new GridDataStore(SampleDatasetGenerator.generate());
+    private readonly summaryCalculator = new SummaryCalculator(this.dataStore);
     private readonly selection = new SelectionManager();
     private readonly resize = new ResizeController(this.geometry);
-    private readonly history = new HistoryManager((action, isUndo) => this.applyAction(action, isUndo));
+    private readonly commandManager = new CommandManager();
 
-    private readonly editor: CellEditorController;
+    private readonly editor: EditManager;
     private readonly renderer: GridRenderer;
 
     constructor() {
@@ -55,13 +61,13 @@ export class ExcelGrid {
         this.jsonFileInput = document.getElementById('json-file-input') as HTMLInputElement | null;
         this.jsonStatus = document.getElementById('json-status') as HTMLElement | null;
 
-        this.editor = new CellEditorController(
+        this.editor = new EditManager(
             this.cellEditor,
             this.geometry,
             this.dataStore,
             (row, col, oldValue, newValue) => {
-                this.history.push({ type: 'cell-edit', row, col, oldValue, newValue });
-                this.dataStore.setValue(row, col, newValue);
+                const command = new EditCellCommand(this.dataStore, row, col, oldValue, newValue);
+                this.commandManager.executeCommand(command);
             },
         );
 
@@ -107,7 +113,6 @@ export class ExcelGrid {
         });
     }
 
-
     private toGridPoint(e: MouseEvent): { screenX: number; screenY: number; gridX: number; gridY: number } {
         const rect = this.canvasShell.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
@@ -147,7 +152,6 @@ export class ExcelGrid {
         }
         return { row: this.geometry.getRowAtY(gridY), col: this.geometry.getColumnAtX(gridX) };
     }
-
 
     private setupInteractionListeners(): void {
         this.canvasShell.addEventListener('mousedown', (e: MouseEvent) => this.handleMouseDown(e));
@@ -209,7 +213,7 @@ export class ExcelGrid {
     private loadNewData(newData: GridData): void {
         this.editor.cancel();
         this.dataStore.loadData(newData);
-        this.history.clear();
+        this.commandManager.clear();
         this.selection.selectedCell = null;
         this.selection.selectionRange = null;
         this.scrollContainer.scrollTo(0, 0);
@@ -288,10 +292,14 @@ export class ExcelGrid {
                 this.resize.processDrag();
             }
             for (const result of this.resize.finalize()) {
+                // The drag already applied the new size live; we only need to register
+                // the completed action so it becomes undoable (see CommandManager.registerExecuted).
                 if (result.type === 'col-resize') {
-                    this.history.push({ type: 'col-resize', col: result.index, oldWidth: result.oldSize, newWidth: result.newSize });
+                    const command = new ResizeColumnCommand(this.geometry.columns, result.index, result.oldSize, result.newSize);
+                    this.commandManager.registerExecuted(command);
                 } else {
-                    this.history.push({ type: 'row-resize', row: result.index, oldHeight: result.oldSize, newHeight: result.newSize });
+                    const command = new ResizeRowCommand(this.geometry.rows, result.index, result.oldSize, result.newSize);
+                    this.commandManager.registerExecuted(command);
                 }
             }
             this.syncVirtualScrollDimensions();
@@ -320,13 +328,15 @@ export class ExcelGrid {
 
         if (modifier && key === 'z' && !e.shiftKey) {
             e.preventDefault();
-            this.history.undo();
+            this.commandManager.undo();
+            this.syncVirtualScrollDimensions();
             this.draw();
             return;
         }
         if (modifier && (key === 'y' || (key === 'z' && e.shiftKey))) {
             e.preventDefault();
-            this.history.redo();
+            this.commandManager.redo();
+            this.syncVirtualScrollDimensions();
             this.draw();
             return;
         }
@@ -335,45 +345,26 @@ export class ExcelGrid {
             if (row === HEADER_SELECTION_SENTINEL || col === HEADER_SELECTION_SENTINEL) return;
             const oldValue = this.dataStore.getValue(row, col);
             if (oldValue === '') return;
-            this.history.push({ type: 'cell-edit', row, col, oldValue, newValue: '' });
-            this.dataStore.setValue(row, col, '');
+
+            const command = new EditCellCommand(this.dataStore, row, col, oldValue, '');
+            this.commandManager.executeCommand(command);
             this.draw();
         }
     }
 
-
-    private applyAction(action: EditAction, isUndo: boolean): void {
-        switch (action.type) {
-            case 'cell-edit': {
-                const value = isUndo ? action.oldValue : action.newValue;
-                this.dataStore.setValue(action.row, action.col, value);
-                break;
-            }
-            case 'col-resize': {
-                const width = isUndo ? action.oldWidth : action.newWidth;
-                this.geometry.setColumnWidth(action.col, width);
-                this.syncVirtualScrollDimensions();
-                break;
-            }
-            case 'row-resize': {
-                const height = isUndo ? action.oldHeight : action.newHeight;
-                this.geometry.setRowHeight(action.row, height);
-                this.syncVirtualScrollDimensions();
-                break;
-            }
-        }
-        this.draw();
-    }
-
-
     public draw(): void {
         this.updateSummaryBar();
 
+        const viewWidth = this.canvasShell.clientWidth;
+        const viewHeight = this.canvasShell.clientHeight;
+        const visibleRange = this.viewport.getVisibleRange(viewWidth, viewHeight, this.scrollX, this.scrollY);
+
         this.renderer.draw(
-            this.canvasShell.clientWidth,
-            this.canvasShell.clientHeight,
+            viewWidth,
+            viewHeight,
             this.scrollX,
             this.scrollY,
+            visibleRange,
             this.selection,
             this.editor.editingCell,
         );
@@ -394,13 +385,7 @@ export class ExcelGrid {
         if (!range) {
             return { count: 0, min: null, max: null, sum: 0, average: null };
         }
-
-        return this.dataStore.getNumericSummary(
-            range.startRow,
-            range.startColumn,
-            range.endRow,
-            range.endColumn,
-        );
+        return this.summaryCalculator.calculate(range);
     }
 
     private formatSummaryValue(value: number | null): string {

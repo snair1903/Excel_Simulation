@@ -1,4 +1,4 @@
-// ---- Grid sizing ----
+// Grid sizing 
 export const colWidth = 100;
 export const rowHeight = 25;
 export const headerWidth = 60;
@@ -11,10 +11,10 @@ export const maxRows = 100000;
 export const maxCols = 500;
 
 
-export const sampleDatasetRowCount = 50000;
-export const sampleAgeUpperBoundExclusive = 100;
-export const sampleSalaryUpperBoundExclusive = 10000;
-export const sampleLastNameSuffixUpperBoundExclusive = 1000;
+export const sampleRowCount = 50000;
+export const sampleAgeUpper = 100;
+export const sampleSalaryUpper = 10000;
+export const sampleLastNameSuffix = 1000;
 
 
 export const HEADER_SELECTION_SENTINEL = -1;
@@ -35,7 +35,7 @@ export const headerFont = '500 11px sans-serif';
 export const columnHeaderTextBaselineOffset = 19;
 export const rowHeaderTextBaselineOffset = 16;
 
-// ---- Rendering: colors ----
+// colors 
 export const colorGridBackground = '#ffffff';
 export const colorCellBorder = '#e0e0e0';
 export const colorCellText = '#1c1c1c';

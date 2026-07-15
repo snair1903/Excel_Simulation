@@ -1,5 +1,5 @@
-import { maxCols, maxRows, HEADER_SELECTION_SENTINEL } from "./Constants/Constant.js";
-import type { Cell, SelectionRange } from "./models.js";
+import { maxCols, maxRows, HEADER_SELECTION_SENTINEL } from "../Constants/Constant.js";
+import type { Cell, SelectionRange } from "../models/Types.js";
 
 export type SelectionMode = 'cell' | 'row' | 'column' | 'all';
 
@@ -9,7 +9,6 @@ export class SelectionManager {
     public isSelecting = false;
     public mode: SelectionMode = 'cell';
 
-    
     public startSelection(cell: Cell): void {
         this.selectedCell = cell;
         this.isSelecting = true;
