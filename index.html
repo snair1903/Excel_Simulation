@@ -8,10 +8,15 @@
 </head>
 <body>
    <div id="grid-container">
+       <div id="toolbar">
+           <label id="json-load-button" for="json-file-input">Load JSON</label>
+           <input type="file" id="json-file-input" accept="application/json" hidden />
+           <span id="json-status" aria-live="polite"></span>
+       </div>
        <div id="canvas-shell">
-           <canvas id="excelCanvas"></canvas>
-           <input type="text" id="cell-editor" />
-           <div id="scroll-container">
+           <canvas id="excelCanvas" tabindex="0" aria-label="Excel-like data grid. Use arrow keys to navigate, Enter to edit, Ctrl+Z/Ctrl+Y to undo/redo."></canvas>
+           <input type="text" id="cell-editor" aria-label="Cell editor" />
+           <div id="scroll-container" tabindex="0">
                <div id="scroll-content"></div>
            </div>
        </div>

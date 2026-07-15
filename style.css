@@ -29,6 +29,7 @@ body {
 }
 
 #json-load-button {
+    display: inline-block;
     border: 1px solid #107c41;
     background: #107c41;
     color: #ffffff;
@@ -41,6 +42,15 @@ body {
 
 #json-load-button:hover {
     background: #0e6d39;
+}
+
+#json-status {
+    font-size: 12px;
+    color: #4a4a4a;
+}
+
+#json-status.json-status-error {
+    color: #b3261e;
 }
 
 #canvas-shell {
