@@ -254,6 +254,7 @@ export class Grid {
 
         const cell = this.resolveSelectionStart(e);
         this.selection.startSelection(cell);
+         this.updateSummaryBar();
         this.draw();
     }
 
@@ -261,6 +262,7 @@ export class Grid {
         if (this.selection.isSelecting) {
             const cell = this.getCellCoordsFromMouseEvent(e);
             this.selection.updateSelection(cell);
+             this.updateSummaryBar();
             this.draw();
             return;
         }
@@ -283,6 +285,7 @@ export class Grid {
             const cell = this.getCellCoordsFromMouseEvent(e);
             this.selection.updateSelection(cell);
             this.selection.endSelection();
+             this.updateSummaryBar();
             this.draw();
             return;
         }
@@ -353,7 +356,7 @@ export class Grid {
     }
 
     public draw(): void {
-        this.updateSummaryBar();
+        // this.updateSummaryBar();
 
         const viewWidth = this.canvasShell.clientWidth;
         const viewHeight = this.canvasShell.clientHeight;
