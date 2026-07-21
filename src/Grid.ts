@@ -15,6 +15,9 @@ import { EditCellCommand } from "./commands/EditCellCommand.js";
 import { ResizeColumnCommand } from "./commands/ResizeColumnCommand.js";
 import { ResizeRowCommand } from "./commands/ResizeRowCommand.js";
 
+let clickTimer: number | null = null;
+const DOUBLE_CLICK_DELAY = 250; // Milliseconds to wait
+
 export class Grid {
     private readonly canvas: HTMLCanvasElement;
     private readonly ctx: CanvasRenderingContext2D;
@@ -113,10 +116,10 @@ export class Grid {
         });
     }
 
-    private toGridPoint(e: MouseEvent): { screenX: number; screenY: number; gridX: number; gridY: number } {
+    private toGridPoint(clientX:number,clientY:number): { screenX: number; screenY: number; gridX: number; gridY: number } {
         const rect = this.canvasShell.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
+        const screenX = clientX - rect.left;
+        const screenY = clientY - rect.top;
         return {
             screenX,
             screenY,
@@ -125,19 +128,17 @@ export class Grid {
         };
     }
 
-    /** Resolves the cell under the cursor for drag-continuation purposes. Always returns a value
-     *  clamped to the grid bounds (clicks above/left of the grid clamp to row/col 0). */
-    private getCellCoordsFromMouseEvent(e: MouseEvent): Cell {
-        const { gridX, gridY } = this.toGridPoint(e);
+
+    private getCellCoordsFromPointerEvent(clientX:number ,clientY:number): Cell {
+        const { gridX, gridY } = this.toGridPoint(clientX,clientY);
         const col = this.geometry.getColumnAtX(gridX);
         const row = this.geometry.getRowAtY(gridY);
         return { row, col };
     }
 
-    /** Resolves what a mousedown should start selecting: a single cell, or - if the click landed in
-     *  a header strip - an entire row, an entire column, or (top-left corner) the whole sheet. */
-    private resolveSelectionStart(e: MouseEvent): Cell {
-        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e);
+   
+    private resolveSelectionStart(e: PointerEvent): Cell {
+        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX,e.clientY);
         const inColumnHeaderStrip = screenY < headerHeight;
         const inRowHeaderStrip = screenX < headerWidth;
 
@@ -154,12 +155,14 @@ export class Grid {
     }
 
     private setupInteractionListeners(): void {
-        this.canvasShell.addEventListener('mousedown', (e: MouseEvent) => this.handleMouseDown(e));
-        document.addEventListener('mousemove', (e: MouseEvent) => this.handleMouseMove(e));
-        document.addEventListener('mouseup', (e: MouseEvent) => this.handleMouseUp(e));
+        this.canvasShell.addEventListener('pointerdown', (e: PointerEvent) => {
+            this.handlePointerDown(e)
+        });
+        document.addEventListener('pointermove', (e: PointerEvent) => this.handlePointerMove(e));
+        document.addEventListener('pointerup', (e: PointerEvent) => this.handlePointerUp(e));
 
         this.scrollContainer.addEventListener('dblclick', (e: MouseEvent) => {
-            const cell = this.getCellCoordsFromMouseEvent(e);
+            const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
             this.editor.startEditing(cell.row, cell.col, this.scrollX, this.scrollY);
             this.selection.selectedCell = cell;
             this.selection.endSelection();
@@ -228,10 +231,10 @@ export class Grid {
         this.jsonStatus.classList.toggle('json-status-error', isError);
     }
 
-    private handleMouseDown(e: MouseEvent): void {
+    private handlePointerDown(e: PointerEvent): void {
         this.editor.blur(); // commits any in-progress edit via the blur listener
 
-        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e);
+        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX,e.clientY);
 
         const nearTopStrip = screenY <= headerHeight;
         const nearLeftStrip = screenX <= headerWidth;
@@ -258,9 +261,9 @@ export class Grid {
         this.draw();
     }
 
-    private handleMouseMove(e: MouseEvent): void {
+    private handlePointerMove(e: PointerEvent): void {
         if (this.selection.isSelecting) {
-            const cell = this.getCellCoordsFromMouseEvent(e);
+            const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
             this.selection.updateSelection(cell);
              this.updateSummaryBar();
             this.draw();
@@ -280,9 +283,9 @@ export class Grid {
         this.updateHoverCursor(e);
     }
 
-    private handleMouseUp(e: MouseEvent): void {
+    private handlePointerUp(e: PointerEvent): void {
         if (this.selection.isSelecting) {
-            const cell = this.getCellCoordsFromMouseEvent(e);
+            const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
             this.selection.updateSelection(cell);
             this.selection.endSelection();
              this.updateSummaryBar();
@@ -295,8 +298,7 @@ export class Grid {
                 this.resize.processDrag();
             }
             for (const result of this.resize.finalize()) {
-                // The drag already applied the new size live; we only need to register
-                // the completed action so it becomes undoable (see CommandManager.registerExecuted).
+                
                 if (result.type === 'col-resize') {
                     const command = new ResizeColumnCommand(this.geometry.columns, result.index, result.oldSize, result.newSize);
                     this.commandManager.registerExecuted(command);
@@ -310,8 +312,8 @@ export class Grid {
         }
     }
 
-    private updateHoverCursor(e: MouseEvent): void {
-        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e);
+    private updateHoverCursor(e: PointerEvent): void {
+        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX,e.clientY);
         const nearTopStrip = screenY <= headerHeight;
         const nearLeftStrip = screenX <= headerWidth;
 
