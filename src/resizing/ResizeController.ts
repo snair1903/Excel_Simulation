@@ -2,19 +2,19 @@ import { GridGeometry } from "../geometry/GridGeometry.js";
 import type { ResizeResult } from "../models/Types.js";
 
 export class ResizeController {
-    private resizingColumn: number | null = null;
-    private resizingRow: number | null = null;
+    protected resizingColumn: number | null = null;
+    protected resizingRow: number | null = null;
 
-    private resizingStartX = 0;
-    private resizeInitialWidth = 0;
+    protected resizingStartX = 0;
+    protected resizeInitialWidth = 0;
 
-    private resizingStartY = 0;
-    private resizeInitialHeight = 0;
+    protected resizingStartY = 0;
+    protected resizeInitialHeight = 0;
 
-    private resizePending = false;
-    private pendingMouseEvent: MouseEvent | null = null;
+    protected resizePending = false;
+    protected pendingMouseEvent: MouseEvent | null = null;
 
-    constructor(private readonly geometry: GridGeometry) {}
+    constructor(protected readonly geometry: GridGeometry) {}
 
     public isResizing(): boolean {
         return this.resizingColumn !== null || this.resizingRow !== null;

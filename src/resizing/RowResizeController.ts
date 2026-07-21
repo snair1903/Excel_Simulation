@@ -1,23 +1,21 @@
-import { GridGeometry } from "../geometry/GridGeometry.js";
 import type { ResizeResult } from "../models/Types.js";
+import { ResizeController } from "./ResizeController.js";
 
-export class RowResizeController {
-    private resizingRow: number | null = null;
+export class RowResizeController extends ResizeController {
 
 
-    private resizingStartY = 0;
-    private resizeInitialHeight = 0;
+    public hitTest(nearTopStrip:number,nearLeftStrip:number,gridX:number,gridY:number,clientX:number,clientY:number):boolean{
+        const startedResizeRow = this.tryStartFromGridPoint(
+            nearTopStrip ? gridX : null,
+            nearLeftStrip ? gridY : null,
+            clientX,
+            clientY,
+        );
+        return startedResizeRow
 
-    private resizePending = false;
-    private pendingMouseEvent: MouseEvent | null = null;
-
-    constructor(private readonly geometry: GridGeometry) {}
-
-    public isResizing(): boolean {
-        return this.resizingRow !== null;
     }
 
-    public tryStartFromGridPoint( gridY: number | null, clientY: number): boolean {
+    public tryStartFromGridPoint( gridX: number | null,gridY: number | null, clientx: number,clientY:number): boolean {
         let started = false;
 
         const row = gridY === null ? null : this.geometry.getResizeRowBorder(gridY);
@@ -31,13 +29,13 @@ export class RowResizeController {
         return started;
     }
 
-    public queueDrag(e: MouseEvent, onFrame: () => void): void {
-        this.pendingMouseEvent = e;
-        if (!this.resizePending) {
-            this.resizePending = true;
-            requestAnimationFrame(onFrame);
-        }
-    }
+    // public queueDrag(e: MouseEvent, onFrame: () => void): void {
+    //     this.pendingMouseEvent = e;
+    //     if (!this.resizePending) {
+    //         this.resizePending = true;
+    //         requestAnimationFrame(onFrame);
+    //     }
+    // }
 
     public hasPendingFrame(): boolean {
         return this.resizePending;
@@ -79,10 +77,10 @@ export class RowResizeController {
         return results;
     }
 
-    public getHoverCursor( gridY: number, isNearLeftStrip: boolean): 'row-resize' | 'default' {
-        if (isNearLeftStrip && this.geometry.getResizeRowBorder(gridY) !== null) {
-            return 'row-resize';
-        }
-        return 'default';
-    }
+    // public getHoverCursor( gridY: number, isNearLeftStrip: boolean): 'row-resize' | 'default' {
+    //     if (isNearLeftStrip && this.geometry.getResizeRowBorder(gridY) !== null) {
+    //         return 'row-resize';
+    //     }
+    //     return 'default';
+    // }
 }

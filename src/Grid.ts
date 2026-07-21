@@ -14,6 +14,10 @@ import { CommandManager } from "./commands/CommandManager.js";
 import { EditCellCommand } from "./commands/EditCellCommand.js";
 import { ResizeColumnCommand } from "./commands/ResizeColumnCommand.js";
 import { ResizeRowCommand } from "./commands/ResizeRowCommand.js";
+import { CellSelectionController } from "./selection/CellSelectionController.js";
+import  { RowSelectionController } from "./selection/RowSelectionController.js";
+import  { ColumnSelectionController } from "./selection/ColumnSelectionController.js";
+import  { AllSelectionController } from "./selection/AllSelectionController.js";
 
 let clickTimer: number | null = null;
 const DOUBLE_CLICK_DELAY = 250; // Milliseconds to wait
@@ -41,7 +45,20 @@ export class Grid {
     private readonly viewport = new ViewportManager(this.geometry);
     private readonly dataStore = new GridDataStore(SampleDatasetGenerator.generate());
     private readonly summaryCalculator = new SummaryCalculator(this.dataStore);
-    private readonly selection = new SelectionManager();
+
+    // private readonly selection = new SelectionManager();
+    private activeHandler : CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null = null
+    private handlers:(CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController)[];
+    private cellSelector:CellSelectionController;
+    private columnSelector:ColumnSelectionController;
+    private RowSelector:RowSelectionController;
+    private AllSelector:AllSelectionController;
+
+
+
+
+
+
     private readonly resize = new ResizeController(this.geometry);
     private readonly commandManager = new CommandManager();
 
@@ -63,6 +80,13 @@ export class Grid {
         this.summaryAverage = document.getElementById('summary-average') as HTMLElement;
         this.jsonFileInput = document.getElementById('json-file-input') as HTMLInputElement | null;
         this.jsonStatus = document.getElementById('json-status') as HTMLElement | null;
+
+        this.cellSelector = new CellSelectionController();
+        this.columnSelector = new ColumnSelectionController();
+        this.RowSelector = new RowSelectionController();
+        this.AllSelector = new AllSelectionController();
+
+        this.handlers = [this.AllSelector,this.RowSelector,this.columnSelector,this.cellSelector]
 
         this.editor = new EditManager(
             this.cellEditor,
@@ -156,6 +180,7 @@ export class Grid {
 
     private setupInteractionListeners(): void {
         this.canvasShell.addEventListener('pointerdown', (e: PointerEvent) => {
+            // console.log("Clicked")
             this.handlePointerDown(e)
         });
         document.addEventListener('pointermove', (e: PointerEvent) => this.handlePointerMove(e));
@@ -164,8 +189,11 @@ export class Grid {
         this.scrollContainer.addEventListener('dblclick', (e: MouseEvent) => {
             const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
             this.editor.startEditing(cell.row, cell.col, this.scrollX, this.scrollY);
-            this.selection.selectedCell = cell;
-            this.selection.endSelection();
+            // this.selection.selectedCell = cell;
+            // this.selection.endSelection();
+            this.activeHandler!.selectedCell = cell;
+            this.activeHandler!.endSelection();
+
             this.draw();
         });
 
@@ -217,8 +245,10 @@ export class Grid {
         this.editor.cancel();
         this.dataStore.loadData(newData);
         this.commandManager.clear();
-        this.selection.selectedCell = null;
-        this.selection.selectionRange = null;
+        // this.selection.selectedCell = null;
+        // this.selection.selectionRange = null;
+        this.activeHandler!.selectedCell = null;
+        this.activeHandler!.selectionRange = null;
         this.scrollContainer.scrollTo(0, 0);
         this.scrollX = 0;
         this.scrollY = 0;
@@ -256,15 +286,21 @@ export class Grid {
         }
 
         const cell = this.resolveSelectionStart(e);
-        this.selection.startSelection(cell);
+        // this.selection.startSelection(cell);
+        for(let i = 0;i<this.handlers.length;i++){
+            if( this.handlers[i]!.hitTest(cell)){
+                this.activeHandler = this.handlers[i]!
+                break
+            }
+        }
          this.updateSummaryBar();
         this.draw();
     }
 
     private handlePointerMove(e: PointerEvent): void {
-        if (this.selection.isSelecting) {
+        if (this.activeHandler?.isSelecting) {
             const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
-            this.selection.updateSelection(cell);
+            this.activeHandler?.updateSelection(cell);
              this.updateSummaryBar();
             this.draw();
             return;
@@ -284,10 +320,10 @@ export class Grid {
     }
 
     private handlePointerUp(e: PointerEvent): void {
-        if (this.selection.isSelecting) {
+        if (this.activeHandler?.isSelecting) {
             const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
-            this.selection.updateSelection(cell);
-            this.selection.endSelection();
+            this.activeHandler?.updateSelection(cell);
+            this.activeHandler?.endSelection();
              this.updateSummaryBar();
             this.draw();
             return;
@@ -345,8 +381,8 @@ export class Grid {
             this.draw();
             return;
         }
-        if (!modifier && this.selection.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
-            const { row, col } = this.selection.selectedCell;
+        if (!modifier && this.activeHandler?.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
+            const { row, col } = this.activeHandler?.selectedCell;
             if (row === HEADER_SELECTION_SENTINEL || col === HEADER_SELECTION_SENTINEL) return;
             const oldValue = this.dataStore.getValue(row, col);
             if (oldValue === '') return;
@@ -370,7 +406,8 @@ export class Grid {
             this.scrollX,
             this.scrollY,
             visibleRange,
-            this.selection,
+            // this.selection,
+            this.activeHandler,
             this.editor.editingCell,
         );
     }
@@ -386,7 +423,8 @@ export class Grid {
     }
 
     private getCurrentSelectionSummary(): RangeSummary {
-        const range = this.selection.selectionRange;
+        // const range = this.selection.selectionRange;
+        const range = this.activeHandler?.selectionRange;
         if (!range) {
             return { count: 0, min: null, max: null, sum: 0, average: null };
         }

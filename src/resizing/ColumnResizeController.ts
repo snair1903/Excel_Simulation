@@ -1,22 +1,9 @@
 import { GridGeometry } from "../geometry/GridGeometry.js";
 import type { ResizeResult } from "../models/Types.js";
+import { ResizeController } from "./ResizeController.js";
 
-export class ResizeController {
-    private resizingColumn: number | null = null;
+export class ColumnResizeController extends ResizeController {
 
-    private resizingStartX = 0;
-    private resizeInitialWidth = 0;
-
-
-
-    private resizePending = false;
-    private pendingMouseEvent: MouseEvent | null = null;
-
-    constructor(private readonly geometry: GridGeometry) {}
-
-    public isResizing(): boolean {
-        return this.resizingColumn !== null
-    }
 
     public tryStartFromGridPoint(gridX: number | null,  clientX: number): boolean {
         let started = false;
@@ -32,13 +19,13 @@ export class ResizeController {
         return started;
     }
 
-    public queueDrag(e: MouseEvent, onFrame: () => void): void {
-        this.pendingMouseEvent = e;
-        if (!this.resizePending) {
-            this.resizePending = true;
-            requestAnimationFrame(onFrame);
-        }
-    }
+    // public queueDrag(e: MouseEvent, onFrame: () => void): void {
+    //     this.pendingMouseEvent = e;
+    //     if (!this.resizePending) {
+    //         this.resizePending = true;
+    //         requestAnimationFrame(onFrame);
+    //     }
+    // }
 
     public hasPendingFrame(): boolean {
         return this.resizePending;
@@ -78,10 +65,10 @@ export class ResizeController {
         return results;
     }
 
-    public getHoverCursor(gridX: number, gridY: number, isNearTopStrip: boolean, isNearLeftStrip: boolean): 'col-resize' | 'default' {
-        if (isNearTopStrip && this.geometry.getResizeColumnBorder(gridX) !== null) {
-            return 'col-resize';
-        }
-        return 'default';
-    }
+    // public getHoverCursor(gridX: number, gridY: number, isNearTopStrip: boolean, isNearLeftStrip: boolean): 'col-resize' | 'default' {
+    //     if (isNearTopStrip && this.geometry.getResizeColumnBorder(gridX) !== null) {
+    //         return 'col-resize';
+    //     }
+    //     return 'default';
+    // }
 }

@@ -4,6 +4,10 @@ import { GridDataStore } from "../data/GridDataStore.js";
 import { SelectionManager } from "../selection/SelectionManager.js";
 import type { VisibleRange } from "../viewport/ViewportManager.js";
 import { ColumnModel } from "../geometry/ColumnModel.js";
+import { CellSelectionController } from "../selection/CellSelectionController.js";
+import { ColumnSelectionController } from "../selection/ColumnSelectionController.js";
+import { RowSelectionController } from "../selection/RowSelectionController.js";
+import { AllSelectionController } from "../selection/AllSelectionController.js";
 import {
     headerHeight, headerWidth,
     cellFont, cellTextPaddingX, cellTextBaselineOffset,
@@ -28,7 +32,7 @@ export class GridRenderer {
         scrollX: number,
         scrollY: number,
         visibleRange: VisibleRange,
-        selection: SelectionManager,
+        selection: CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null,
         editingCell: Cell | null,
     ): void {
         // this.ctx.fillStyle = colorGridBackground;
@@ -67,8 +71,8 @@ export class GridRenderer {
         }
     }
 
-    private drawSelectionHighlight(scrollX: number, scrollY: number, selection: SelectionManager, editingCell: Cell | null): void {
-        if (!selection.selectionRange || editingCell) return;
+    private drawSelectionHighlight(scrollX: number, scrollY: number, selection: CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null, editingCell: Cell | null): void {
+        if (!selection?.selectionRange || editingCell) return;
         const { geometry, ctx } = this;
 
         if (selection.hasRangeSelection()) {
@@ -103,12 +107,12 @@ export class GridRenderer {
         ctx.fillRect(x, y, width, height);
     }
 
-    private drawVisibleHeaders(scrollX: number, scrollY: number, range: VisibleRange, selection: SelectionManager): void {
+    private drawVisibleHeaders(scrollX: number, scrollY: number, range: VisibleRange, selection: CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null): void {
         const { geometry, ctx } = this;
         ctx.font = headerFont;
         ctx.textAlign = 'center';
 
-        const selRange = selection.selectionRange;
+        const selRange = selection?selection.selectionRange:null;
 
         for (let c = range.startCol; c <= range.endCol; c++) {
             const x = geometry.columns.getStart(c) - scrollX + headerWidth;
@@ -138,7 +142,7 @@ export class GridRenderer {
             ctx.fillText((r + 1).toString(), headerWidth / 2, y + rowHeaderTextBaselineOffset);
         }
 
-        ctx.fillStyle = selection.mode === 'all' ? colorHeaderSelectedFill : colorHeaderFill;
+        ctx.fillStyle = selection?.mode === 'all' ? colorHeaderSelectedFill : colorHeaderFill;
         ctx.fillRect(0, 0, headerWidth, headerHeight);
         ctx.strokeStyle = colorHeaderBorder;
         ctx.strokeRect(0, 0, headerWidth, headerHeight);
