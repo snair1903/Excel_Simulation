@@ -332,8 +332,8 @@ export class Grid {
             this.draw();
             return;
         }
-        if (!modifier && this.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
-            const { row, col } = this.selectedCell;
+        if (!modifier && this.selectionManager.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
+            const { row, col } = this.selectionManager.selectedCell;
             if (row === HEADER_SELECTION_SENTINEL || col === HEADER_SELECTION_SENTINEL) return;
             const oldValue = this.dataStore.getValue(row, col);
             if (oldValue === '') return;
@@ -375,7 +375,7 @@ export class Grid {
 
     private getCurrentSelectionSummary(): RangeSummary {
         // const range = this.selection.selectionRange;
-        const range = this.selectionRange;
+        const range = this.selectionManager.selectionRange;
         if (!range) {
             return { count: 0, min: null, max: null, sum: 0, average: null };
         }

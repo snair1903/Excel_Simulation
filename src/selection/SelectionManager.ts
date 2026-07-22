@@ -3,10 +3,10 @@ import type { Cell, SelectionRange } from "../models/Types.js";
 import type { selectionMode } from "../models/Types.js";
 
 export class SelectionManager {
-    public selectedCell: Cell | null = null;
-    public selectionRange: SelectionRange | null = null;
+    public selectedCell: Cell | null ;
+    public selectionRange: SelectionRange | null ;
     public isSelecting = false;
-    public mode: selectionMode = 'cell';
+    public mode: selectionMode ;
     constructor(cell:Cell|null,selectionR:SelectionRange|null,modes:selectionMode){
         this.selectedCell = cell;
     this.selectionRange = selectionR;

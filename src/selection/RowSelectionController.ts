@@ -13,6 +13,7 @@ export class RowSelectionController {
 
 
     public updateSelection(activeCell: Cell): void {
+        console.log("")
         if (!this.selectionManager.selectionRange || !this.selectionManager.selectedCell) return;
 
 
