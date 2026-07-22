@@ -10,6 +10,9 @@ export interface Cell {
     col: number;
 }
 
+export type selectionMode = 'cell' | 'row' | 'column' | 'all';
+
+
 /** Sparse row-major storage shape: only rows/columns with a value are present. */
 export interface GridData {
     [row: number]: { [col: number]: string };
@@ -43,4 +46,12 @@ export interface ResizeResult {
     index: number;
     oldSize: number;
     newSize: number;
+}
+
+
+export interface GridResolution{
+    screenX:number;
+    screenY:number;
+    gridX:number;
+    gridY:number;
 }

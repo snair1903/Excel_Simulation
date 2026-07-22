@@ -18,6 +18,7 @@ import {
     colorSelectionRangeFill, colorSelectionBorder, selectionBorderWidth,
     colorActiveCellFill,
 } from "../Constants/Constant.js";
+import type { RowResizeController } from "../resizing/RowResizeController.js";
 
 export class GridRenderer {
     constructor(
@@ -32,7 +33,7 @@ export class GridRenderer {
         scrollX: number,
         scrollY: number,
         visibleRange: VisibleRange,
-        selection: CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null,
+        selection: SelectionManager,
         editingCell: Cell | null,
     ): void {
         // this.ctx.fillStyle = colorGridBackground;
@@ -71,7 +72,7 @@ export class GridRenderer {
         }
     }
 
-    private drawSelectionHighlight(scrollX: number, scrollY: number, selection: CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null, editingCell: Cell | null): void {
+    private drawSelectionHighlight(scrollX: number, scrollY: number, selection: SelectionManager, editingCell: Cell | null): void {
         if (!selection?.selectionRange || editingCell) return;
         const { geometry, ctx } = this;
 
@@ -107,7 +108,7 @@ export class GridRenderer {
         ctx.fillRect(x, y, width, height);
     }
 
-    private drawVisibleHeaders(scrollX: number, scrollY: number, range: VisibleRange, selection: CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null): void {
+    private drawVisibleHeaders(scrollX: number, scrollY: number, range: VisibleRange, selection: SelectionManager): void {
         const { geometry, ctx } = this;
         ctx.font = headerFont;
         ctx.textAlign = 'center';

@@ -1,21 +1,12 @@
-import type { ResizeResult } from "../models/Types.js";
 import { ResizeController } from "./ResizeController.js";
+import type { Cell, GridResolution, ResizeResult } from "../models/Types.js";
+import { ResizeRowCommand } from "../commands/ResizeRowCommand.js";
+import { CommandManager } from "../commands/CommandManager.js";
+import { headerHeight, headerWidth } from "../Constants/Constant.js";
 
 export class RowResizeController extends ResizeController {
 
-
-    public hitTest(nearTopStrip:number,nearLeftStrip:number,gridX:number,gridY:number,clientX:number,clientY:number):boolean{
-        const startedResizeRow = this.tryStartFromGridPoint(
-            nearTopStrip ? gridX : null,
-            nearLeftStrip ? gridY : null,
-            clientX,
-            clientY,
-        );
-        return startedResizeRow
-
-    }
-
-    public tryStartFromGridPoint( gridX: number | null,gridY: number | null, clientx: number,clientY:number): boolean {
+    public tryStartFromGridPoint(gridY: number | null, clientY: number): boolean {
         let started = false;
 
         const row = gridY === null ? null : this.geometry.getResizeRowBorder(gridY);
@@ -29,27 +20,12 @@ export class RowResizeController extends ResizeController {
         return started;
     }
 
-    // public queueDrag(e: MouseEvent, onFrame: () => void): void {
-    //     this.pendingMouseEvent = e;
-    //     if (!this.resizePending) {
-    //         this.resizePending = true;
-    //         requestAnimationFrame(onFrame);
-    //     }
-    // }
-
-    public hasPendingFrame(): boolean {
-        return this.resizePending;
-    }
-
-    /** Applies the buffered mouse position to the geometry. Returns true if anything changed. */
     public processDrag(): boolean {
         this.resizePending = false;
         const e = this.pendingMouseEvent;
         if (!e) return false;
 
         let changed = false;
-
-       
 
         if (this.resizingRow !== null) {
             const deltaY = e.clientY - this.resizingStartY;
@@ -60,10 +36,8 @@ export class RowResizeController extends ResizeController {
         return changed;
     }
 
-    /** Ends the drag and returns the resulting undo-able results, if sizes actually changed. */
     public finalize(): ResizeResult[] {
         const results: ResizeResult[] = [];
-
 
         if (this.resizingRow !== null) {
             const row = this.resizingRow;
@@ -77,10 +51,38 @@ export class RowResizeController extends ResizeController {
         return results;
     }
 
-    // public getHoverCursor( gridY: number, isNearLeftStrip: boolean): 'row-resize' | 'default' {
-    //     if (isNearLeftStrip && this.geometry.getResizeRowBorder(gridY) !== null) {
-    //         return 'row-resize';
-    //     }
-    //     return 'default';
-    // }
+    public handlePointerDown(e: PointerEvent) {
+    }
+
+    public handlePointerMove(cell: Cell, e: PointerEvent) {
+        this.queueDrag(e, () => {
+            if (this.processDrag()) {
+                this.syncVirtualScrollDimensions();
+            }
+        });
+    }
+
+    public handlePointerUp(cell: Cell, e: PointerEvent) {
+        if (this.hasPendingFrame()) {
+            this.processDrag();
+        }
+        for (const result of this.finalize()) {
+            const command = new ResizeRowCommand(this.geometry.rows, result.index, result.oldSize, result.newSize);
+            this.commandManager.registerExecuted(command);
+        }
+        this.syncVirtualScrollDimensions();
+    }
+
+    public hitTest(cell: Cell, resolution: GridResolution, e: PointerEvent): boolean {
+        console.log("HIII");
+        
+        const isNearLeftStrip = resolution.screenX <= headerWidth; 
+
+        const startedResizeRow = this.tryStartFromGridPoint(
+            isNearLeftStrip ? resolution.gridY : null,
+            e.clientY,
+        );
+        
+        return startedResizeRow;
+    }
 }

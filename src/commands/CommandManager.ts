@@ -8,12 +8,14 @@ export class CommandManager {
 
     /** Runs a brand-new command and records it for undo. Clears the redo branch. */
     public executeCommand(command: ICommand): void {
+        
         command.execute();
         this.registerExecuted(command);
     }
 
     
     public registerExecuted(command: ICommand): void {
+        console.log(command,"hi")
         this.undoStack.push(command);
         if (this.undoStack.length > maxHistorySize) {
             this.undoStack.shift();

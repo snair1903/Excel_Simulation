@@ -1,11 +1,13 @@
 import { GridGeometry } from "../geometry/GridGeometry.js";
-import type { ResizeResult } from "../models/Types.js";
+import type { Cell, GridResolution, ResizeResult } from "../models/Types.js";
 import { ResizeController } from "./ResizeController.js";
+import { ResizeColumnCommand } from "../commands/ResizeColumnCommand.js";
+import { CommandManager } from "../commands/CommandManager.js";
+import { headerHeight, headerWidth } from "../Constants/Constant.js";
 
 export class ColumnResizeController extends ResizeController {
 
-
-    public tryStartFromGridPoint(gridX: number | null,  clientX: number): boolean {
+    public tryStartFromGridPoint(gridX: number | null, clientX: number): boolean {
         let started = false;
 
         const col = gridX === null ? null : this.geometry.getResizeColumnBorder(gridX);
@@ -19,19 +21,10 @@ export class ColumnResizeController extends ResizeController {
         return started;
     }
 
-    // public queueDrag(e: MouseEvent, onFrame: () => void): void {
-    //     this.pendingMouseEvent = e;
-    //     if (!this.resizePending) {
-    //         this.resizePending = true;
-    //         requestAnimationFrame(onFrame);
-    //     }
-    // }
-
     public hasPendingFrame(): boolean {
         return this.resizePending;
     }
 
-    /** Applies the buffered mouse position to the geometry. Returns true if anything changed. */
     public processDrag(): boolean {
         this.resizePending = false;
         const e = this.pendingMouseEvent;
@@ -48,7 +41,6 @@ export class ColumnResizeController extends ResizeController {
         return changed;
     }
 
-    /** Ends the drag and returns the resulting undo-able results, if sizes actually changed. */
     public finalize(): ResizeResult[] {
         const results: ResizeResult[] = [];
 
@@ -65,10 +57,36 @@ export class ColumnResizeController extends ResizeController {
         return results;
     }
 
-    // public getHoverCursor(gridX: number, gridY: number, isNearTopStrip: boolean, isNearLeftStrip: boolean): 'col-resize' | 'default' {
-    //     if (isNearTopStrip && this.geometry.getResizeColumnBorder(gridX) !== null) {
-    //         return 'col-resize';
-    //     }
-    //     return 'default';
-    // }
+    public handlePointerDown(e: PointerEvent) {
+        e.preventDefault();
+    }
+
+    public handlePointerMove(cell: Cell, e: PointerEvent) {
+        this.queueDrag(e, () => {
+            if (this.processDrag()) {
+                this.syncVirtualScrollDimensions();
+            }
+        });
+    }
+
+    public handlePointerUp(cell: Cell, e: PointerEvent) {
+        if (this.hasPendingFrame()) {
+            this.processDrag();
+        }
+        for (const result of this.finalize()) {
+            const command = new ResizeColumnCommand(this.geometry.columns, result.index, result.oldSize, result.newSize);
+            this.commandManager.registerExecuted(command);
+        }
+        this.syncVirtualScrollDimensions();
+    }
+
+    public hitTest(cell: Cell, resolution: GridResolution, e: PointerEvent): boolean {
+        const nearTopStrip = resolution.screenY <= headerHeight;
+        
+        const startedResizeCol = this.tryStartFromGridPoint(
+            nearTopStrip ? resolution.gridX : null,
+            e.clientX,
+        );
+        return startedResizeCol;
+    }
 }

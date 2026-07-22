@@ -1,5 +1,5 @@
+import type { CommandManager } from "../commands/CommandManager.js";
 import { GridGeometry } from "../geometry/GridGeometry.js";
-import type { ResizeResult } from "../models/Types.js";
 
 export class ResizeController {
     protected resizingColumn: number | null = null;
@@ -14,11 +14,17 @@ export class ResizeController {
     protected resizePending = false;
     protected pendingMouseEvent: MouseEvent | null = null;
 
-    constructor(protected readonly geometry: GridGeometry) {}
+    constructor(protected readonly geometry: GridGeometry,protected readonly scrollContent:HTMLDivElement,protected readonly commandManager:CommandManager) {}
 
     public isResizing(): boolean {
         return this.resizingColumn !== null || this.resizingRow !== null;
     }
+
+    protected syncVirtualScrollDimensions(): void {
+        this.scrollContent.style.width = `${this.geometry.getTotalWidth()}px`;
+        this.scrollContent.style.height = `${this.geometry.getTotalHeight()}px`;
+    }
+
 
     public tryStartFromGridPoint(gridX: number | null, gridY: number | null, clientX: number, clientY: number): boolean {
         let started = false;
@@ -78,29 +84,29 @@ export class ResizeController {
     }
 
     /** Ends the drag and returns the resulting undo-able results, if sizes actually changed. */
-    public finalize(): ResizeResult[] {
-        const results: ResizeResult[] = [];
+    // public finalize(): ResizeResult[] {
+    //     const results: ResizeResult[] = [];
 
-        if (this.resizingColumn !== null) {
-            const col = this.resizingColumn;
-            const newWidth = this.geometry.columns.getSize(col);
-            if (newWidth !== this.resizeInitialWidth) {
-                results.push({ type: 'col-resize', index: col, oldSize: this.resizeInitialWidth, newSize: newWidth });
-            }
-            this.resizingColumn = null;
-        }
+    //     if (this.resizingColumn !== null) {
+    //         const col = this.resizingColumn;
+    //         const newWidth = this.geometry.columns.getSize(col);
+    //         if (newWidth !== this.resizeInitialWidth) {
+    //             results.push({ type: 'col-resize', index: col, oldSize: this.resizeInitialWidth, newSize: newWidth });
+    //         }
+    //         this.resizingColumn = null;
+    //     }
 
-        if (this.resizingRow !== null) {
-            const row = this.resizingRow;
-            const newHeight = this.geometry.rows.getSize(row);
-            if (newHeight !== this.resizeInitialHeight) {
-                results.push({ type: 'row-resize', index: row, oldSize: this.resizeInitialHeight, newSize: newHeight });
-            }
-            this.resizingRow = null;
-        }
+    //     if (this.resizingRow !== null) {
+    //         const row = this.resizingRow;
+    //         const newHeight = this.geometry.rows.getSize(row);
+    //         if (newHeight !== this.resizeInitialHeight) {
+    //             results.push({ type: 'row-resize', index: row, oldSize: this.resizeInitialHeight, newSize: newHeight });
+    //         }
+    //         this.resizingRow = null;
+    //     }
 
-        return results;
-    }
+    //     return results;
+    // }
 
     public getHoverCursor(gridX: number, gridY: number, isNearTopStrip: boolean, isNearLeftStrip: boolean): 'col-resize' | 'row-resize' | 'default' {
         if (isNearTopStrip && this.geometry.getResizeColumnBorder(gridX) !== null) {
@@ -111,4 +117,8 @@ export class ResizeController {
         }
         return 'default';
     }
+
+     
+
+
 }

@@ -1,17 +1,21 @@
 import { maxCols, maxRows, HEADER_SELECTION_SENTINEL } from "../Constants/Constant.js";
 import type { Cell, SelectionRange } from "../models/Types.js";
-
-export type selectionMode = 'cell' | 'row' | 'column' | 'all';
+import type { selectionMode } from "../models/Types.js";
 
 export class SelectionManager {
     public selectedCell: Cell | null = null;
     public selectionRange: SelectionRange | null = null;
     public isSelecting = false;
     public mode: selectionMode = 'cell';
+    constructor(cell:Cell|null,selectionR:SelectionRange|null,modes:selectionMode){
+        this.selectedCell = cell;
+    this.selectionRange = selectionR;
+    this.mode= modes;
+    }
 
     public startSelection(cell: Cell): void {
+        
         this.selectedCell = cell;
-        this.isSelecting = true;
 
         const isRowHeaderClick = cell.col === HEADER_SELECTION_SENTINEL;
         const isColumnHeaderClick = cell.row === HEADER_SELECTION_SENTINEL;
@@ -24,12 +28,7 @@ export class SelectionManager {
                     ? 'column'
                     : 'cell';
 
-        this.selectionRange = {
-            startRow: isColumnHeaderClick ? 0 : cell.row,
-            endRow: isColumnHeaderClick ? maxRows - 1 : cell.row,
-            startColumn: isRowHeaderClick ? 0 : cell.col,
-            endColumn: isRowHeaderClick ? maxCols - 1 : cell.col,
-        };
+        
     }
 
     // public updateSelection(activeCell: Cell): void {
@@ -56,7 +55,7 @@ export class SelectionManager {
     // }
 
     public endSelection(): void {
-        this.isSelecting = false;
+        this.isSelecting = false
     }
 
     public hasRangeSelection(): boolean {
@@ -64,5 +63,22 @@ export class SelectionManager {
         const r = this.selectionRange;
         if (!r) return false;
         return r.startRow !== r.endRow || r.startColumn !== r.endColumn;
+    }
+
+    // public handlePointerDown(){
+       
+    //     const isRowHeaderClick = this.selectedCell?.col === HEADER_SELECTION_SENTINEL;
+    //     const isColumnHeaderClick = this.selectedCell?.row === HEADER_SELECTION_SENTINEL;
+
+    //     this.selectionRange = {
+    //         startRow: isColumnHeaderClick ? 0 : this.selectedCell!.row,
+    //         endRow: isColumnHeaderClick ? maxRows - 1 : this.selectedCell!.row,
+    //         startColumn: isRowHeaderClick ? 0 : this.selectedCell!.col,
+    //         endColumn: isRowHeaderClick ? maxCols - 1 : this.selectedCell!.col,
+    //     };
+    // }
+    public getHoverCursor(gridX: number, gridY: number, isNearTopStrip: boolean, isNearLeftStrip: boolean): 'col-resize' | 'row-resize' | 'default' {
+        
+        return 'default';
     }
 }

@@ -1,5 +1,5 @@
 import { headerHeight, headerWidth, HEADER_SELECTION_SENTINEL } from "./Constants/Constant.js";
-import type { Cell, GridData, RangeSummary } from "./models/Types.js";
+import type { Cell, GridData, GridResolution, RangeSummary } from "./models/Types.js";
 import { SampleDatasetGenerator } from "./models/SampleDatasetGenerator.js";
 import { GridGeometry } from "./geometry/GridGeometry.js";
 import { ViewportManager } from "./viewport/ViewportManager.js";
@@ -15,12 +15,13 @@ import { EditCellCommand } from "./commands/EditCellCommand.js";
 import { ResizeColumnCommand } from "./commands/ResizeColumnCommand.js";
 import { ResizeRowCommand } from "./commands/ResizeRowCommand.js";
 import { CellSelectionController } from "./selection/CellSelectionController.js";
-import  { RowSelectionController } from "./selection/RowSelectionController.js";
-import  { ColumnSelectionController } from "./selection/ColumnSelectionController.js";
-import  { AllSelectionController } from "./selection/AllSelectionController.js";
-
-let clickTimer: number | null = null;
-const DOUBLE_CLICK_DELAY = 250; // Milliseconds to wait
+import { RowSelectionController } from "./selection/RowSelectionController.js";
+import { ColumnSelectionController } from "./selection/ColumnSelectionController.js";
+import { AllSelectionController } from "./selection/AllSelectionController.js";
+import type { SelectionRange } from "./models/Types.js";
+import type { selectionMode } from "./models/Types.js";
+import { ColumnResizeController } from "./resizing/ColumnResizeController.js";
+import { RowResizeController } from "./resizing/RowResizeController.js";
 
 export class Grid {
     private readonly canvas: HTMLCanvasElement;
@@ -46,24 +47,30 @@ export class Grid {
     private readonly dataStore = new GridDataStore(SampleDatasetGenerator.generate());
     private readonly summaryCalculator = new SummaryCalculator(this.dataStore);
 
-    // private readonly selection = new SelectionManager();
-    private activeHandler : CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController|null = null
-    private handlers:(CellSelectionController|RowSelectionController|ColumnSelectionController|AllSelectionController)[];
-    private cellSelector:CellSelectionController;
-    private columnSelector:ColumnSelectionController;
-    private RowSelector:RowSelectionController;
-    private AllSelector:AllSelectionController;
+    private activeHandler: CellSelectionController | RowSelectionController | ColumnSelectionController | AllSelectionController|ColumnResizeController|RowResizeController | null = null
+    private handlers: (CellSelectionController | RowSelectionController | ColumnSelectionController | AllSelectionController|ColumnResizeController|RowResizeController)[];
+    private cellSelector: CellSelectionController;
+    private columnSelector: ColumnSelectionController;
+    private RowSelector: RowSelectionController;
+    private AllSelector: AllSelectionController;
+    private ColRes : ColumnResizeController;
+    private RowRes: RowResizeController;
 
 
 
 
 
 
-    private readonly resize = new ResizeController(this.geometry);
+    // private readonly resize = new ResizeController(this.geometry);
     private readonly commandManager = new CommandManager();
 
     private readonly editor: EditManager;
     private readonly renderer: GridRenderer;
+    private readonly selectionManager;
+
+    public selectedCell: Cell | null = null;
+    public selectionRange: SelectionRange | null = null;
+    public mode: selectionMode = 'cell';
 
     constructor() {
         this.canvas = document.getElementById('excelCanvas') as HTMLCanvasElement;
@@ -81,12 +88,16 @@ export class Grid {
         this.jsonFileInput = document.getElementById('json-file-input') as HTMLInputElement | null;
         this.jsonStatus = document.getElementById('json-status') as HTMLElement | null;
 
-        this.cellSelector = new CellSelectionController();
-        this.columnSelector = new ColumnSelectionController();
-        this.RowSelector = new RowSelectionController();
-        this.AllSelector = new AllSelectionController();
 
-        this.handlers = [this.AllSelector,this.RowSelector,this.columnSelector,this.cellSelector]
+        this.selectionManager = new SelectionManager(this.selectedCell,this.selectionRange,this.mode)
+        this.cellSelector = new CellSelectionController(this.selectionManager);
+        this.columnSelector = new ColumnSelectionController(this.selectionManager);
+        this.RowSelector = new RowSelectionController(this.selectionManager);
+        this.AllSelector = new AllSelectionController(this.selectionManager);
+        this.ColRes = new ColumnResizeController(this.geometry,this.scrollContent,this.commandManager);
+        this.RowRes = new RowResizeController(this.geometry,this.scrollContent,this.commandManager);
+
+        this.handlers = [this.ColRes,this.RowRes,this.AllSelector, this.RowSelector, this.columnSelector, this.cellSelector,]
 
         this.editor = new EditManager(
             this.cellEditor,
@@ -140,7 +151,7 @@ export class Grid {
         });
     }
 
-    private toGridPoint(clientX:number,clientY:number): { screenX: number; screenY: number; gridX: number; gridY: number } {
+    private toGridPoint(clientX: number, clientY: number): { screenX: number; screenY: number; gridX: number; gridY: number } {
         const rect = this.canvasShell.getBoundingClientRect();
         const screenX = clientX - rect.left;
         const screenY = clientY - rect.top;
@@ -153,16 +164,16 @@ export class Grid {
     }
 
 
-    private getCellCoordsFromPointerEvent(clientX:number ,clientY:number): Cell {
-        const { gridX, gridY } = this.toGridPoint(clientX,clientY);
+    public getCellCoordsFromPointerEvent(clientX: number, clientY: number): Cell {
+        const { gridX, gridY } = this.toGridPoint(clientX, clientY);
         const col = this.geometry.getColumnAtX(gridX);
         const row = this.geometry.getRowAtY(gridY);
         return { row, col };
     }
 
-   
+
     private resolveSelectionStart(e: PointerEvent): Cell {
-        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX,e.clientY);
+        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX, e.clientY);
         const inColumnHeaderStrip = screenY < headerHeight;
         const inRowHeaderStrip = screenX < headerWidth;
 
@@ -179,21 +190,13 @@ export class Grid {
     }
 
     private setupInteractionListeners(): void {
-        this.canvasShell.addEventListener('pointerdown', (e: PointerEvent) => {
-            // console.log("Clicked")
-            this.handlePointerDown(e)
-        });
+        this.canvasShell.addEventListener('pointerdown', (e: PointerEvent) =>this.handlePointerDown(e));
         document.addEventListener('pointermove', (e: PointerEvent) => this.handlePointerMove(e));
         document.addEventListener('pointerup', (e: PointerEvent) => this.handlePointerUp(e));
 
         this.scrollContainer.addEventListener('dblclick', (e: MouseEvent) => {
-            const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
+            const cell = this.getCellCoordsFromPointerEvent(e.clientX, e.clientY);
             this.editor.startEditing(cell.row, cell.col, this.scrollX, this.scrollY);
-            // this.selection.selectedCell = cell;
-            // this.selection.endSelection();
-            this.activeHandler!.selectedCell = cell;
-            this.activeHandler!.endSelection();
-
             this.draw();
         });
 
@@ -247,8 +250,6 @@ export class Grid {
         this.commandManager.clear();
         // this.selection.selectedCell = null;
         // this.selection.selectionRange = null;
-        this.activeHandler!.selectedCell = null;
-        this.activeHandler!.selectionRange = null;
         this.scrollContainer.scrollTo(0, 0);
         this.scrollX = 0;
         this.scrollY = 0;
@@ -264,96 +265,46 @@ export class Grid {
     private handlePointerDown(e: PointerEvent): void {
         this.editor.blur(); // commits any in-progress edit via the blur listener
 
-        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX,e.clientY);
-
-        const nearTopStrip = screenY <= headerHeight;
-        const nearLeftStrip = screenX <= headerWidth;
-
-        const startedResize = this.resize.tryStartFromGridPoint(
-            nearTopStrip ? gridX : null,
-            nearLeftStrip ? gridY : null,
-            e.clientX,
-            e.clientY,
-        );
-
-        if (startedResize) {
-            e.preventDefault();
-            return;
-        }
-
+        const resolution:GridResolution = this.toGridPoint(e.clientX, e.clientY);
         if (this.editor.isEditing()) {
             this.editor.commit();
         }
-
         const cell = this.resolveSelectionStart(e);
         // this.selection.startSelection(cell);
-        for(let i = 0;i<this.handlers.length;i++){
-            if( this.handlers[i]!.hitTest(cell)){
+        for (let i = 0; i < this.handlers.length; i++) {
+            if (this.handlers[i]!.hitTest(cell,resolution,e)) {
                 this.activeHandler = this.handlers[i]!
                 break
             }
         }
-         this.updateSummaryBar();
+        this.activeHandler?.handlePointerDown(e)
+        this.updateSummaryBar();
         this.draw();
     }
 
     private handlePointerMove(e: PointerEvent): void {
-        if (this.activeHandler?.isSelecting) {
-            const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
-            this.activeHandler?.updateSelection(cell);
-             this.updateSummaryBar();
+            const cell = this.getCellCoordsFromPointerEvent(e.clientX, e.clientY);
+            this.activeHandler?.handlePointerMove(cell,e);
+            this.updateSummaryBar();
             this.draw();
-            return;
-        }
-
-        if (this.resize.isResizing()) {
-            this.resize.queueDrag(e, () => {
-                if (this.resize.processDrag()) {
-                    this.syncVirtualScrollDimensions();
-                    this.draw();
-                }
-            });
-            return;
-        }
 
         this.updateHoverCursor(e);
     }
 
     private handlePointerUp(e: PointerEvent): void {
-        if (this.activeHandler?.isSelecting) {
-            const cell = this.getCellCoordsFromPointerEvent(e.clientX,e.clientY);
-            this.activeHandler?.updateSelection(cell);
-            this.activeHandler?.endSelection();
-             this.updateSummaryBar();
+            const cell = this.getCellCoordsFromPointerEvent(e.clientX, e.clientY);
+            this.activeHandler?.handlePointerUp(cell,e);
+            // this.activeHandler?.endSelection();
+            this.updateSummaryBar();
             this.draw();
-            return;
-        }
-
-        if (this.resize.isResizing()) {
-            if (this.resize.hasPendingFrame()) {
-                this.resize.processDrag();
-            }
-            for (const result of this.resize.finalize()) {
-                
-                if (result.type === 'col-resize') {
-                    const command = new ResizeColumnCommand(this.geometry.columns, result.index, result.oldSize, result.newSize);
-                    this.commandManager.registerExecuted(command);
-                } else {
-                    const command = new ResizeRowCommand(this.geometry.rows, result.index, result.oldSize, result.newSize);
-                    this.commandManager.registerExecuted(command);
-                }
-            }
-            this.syncVirtualScrollDimensions();
-            this.draw();
-        }
     }
 
     private updateHoverCursor(e: PointerEvent): void {
-        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX,e.clientY);
+        const { screenX, screenY, gridX, gridY } = this.toGridPoint(e.clientX, e.clientY);
         const nearTopStrip = screenY <= headerHeight;
         const nearLeftStrip = screenX <= headerWidth;
 
-        const resizeCursor = this.resize.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip);
+        const resizeCursor = this.activeHandler!.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip);
         if (resizeCursor !== 'default') {
             this.canvasShell.style.cursor = resizeCursor;
             return;
@@ -381,8 +332,8 @@ export class Grid {
             this.draw();
             return;
         }
-        if (!modifier && this.activeHandler?.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
-            const { row, col } = this.activeHandler?.selectedCell;
+        if (!modifier && this.selectedCell && (e.key === 'Delete' || e.key === 'Backspace')) {
+            const { row, col } = this.selectedCell;
             if (row === HEADER_SELECTION_SENTINEL || col === HEADER_SELECTION_SENTINEL) return;
             const oldValue = this.dataStore.getValue(row, col);
             if (oldValue === '') return;
@@ -407,7 +358,7 @@ export class Grid {
             this.scrollY,
             visibleRange,
             // this.selection,
-            this.activeHandler,
+            this.selectionManager,
             this.editor.editingCell,
         );
     }
@@ -424,7 +375,7 @@ export class Grid {
 
     private getCurrentSelectionSummary(): RangeSummary {
         // const range = this.selection.selectionRange;
-        const range = this.activeHandler?.selectionRange;
+        const range = this.selectionRange;
         if (!range) {
             return { count: 0, min: null, max: null, sum: 0, average: null };
         }
