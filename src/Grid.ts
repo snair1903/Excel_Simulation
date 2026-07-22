@@ -304,7 +304,7 @@ export class Grid {
         const nearTopStrip = screenY <= headerHeight;
         const nearLeftStrip = screenX <= headerWidth;
 
-        const resizeCursor = this.activeHandler!.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip);
+        const resizeCursor = this.activeHandler?.getHoverCursor(gridX, gridY, nearTopStrip, nearLeftStrip)||"default";
         if (resizeCursor !== 'default') {
             this.canvasShell.style.cursor = resizeCursor;
             return;
